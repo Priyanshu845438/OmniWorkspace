@@ -148,12 +148,13 @@ app.post('/api/orchestrate/stream', async (req, res) => {
 
   sendEvent('init', { taskId });
 
-  const onClose = () => {
-    if (!res.writableEnded && !abortController.signal.aborted) {
+  let isStreamFinished = false;
+  const onClientDisconnect = () => {
+    if (!isStreamFinished && !abortController.signal.aborted) {
       abortController.abort();
     }
   };
-  req.on('close', onClose);
+  res.on('close', onClientDisconnect);
 
   try {
     const classification = orchestrator.classifyTask(prompt);
@@ -180,17 +181,20 @@ app.post('/api/orchestrate/stream', async (req, res) => {
       classification: result.classification,
       verification: result.verification,
     });
+    isStreamFinished = true;
     res.end();
   } catch (err: any) {
-    if (abortController.signal.aborted || err?.message?.includes('aborted') || err?.name === 'AbortError') {
+    if (abortController.signal.aborted || err?.name === 'AbortError') {
       sendEvent('cancelled', { taskId, reason: 'Execution cancelled by user' });
     } else {
       console.error(`[Orchestrate Error] Task ${taskId}:`, err.message || err);
       sendEvent('error', { taskId, error: err.message || 'Execution error' });
     }
+    isStreamFinished = true;
     res.end();
   } finally {
-    req.off('close', onClose);
+    isStreamFinished = true;
+    res.off('close', onClientDisconnect);
     activeTasks.delete(taskId);
   }
 });
