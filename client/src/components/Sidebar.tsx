@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Home,
   MessageSquare,
@@ -12,6 +12,8 @@ import {
   FileText,
   Sliders,
   Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,27 +25,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activePerspective,
   onSelectPerspective,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   const navItems = [
-    { id: 'home', label: 'Home', icon: Home },
-    { id: 'chat', label: 'Chat', icon: MessageSquare },
-    { id: 'code', label: 'Code', icon: Code2 },
-    { id: 'architecture', label: 'Graph', icon: Network },
-    { id: 'research', label: 'Research', icon: Globe2 },
-    { id: 'data', label: 'Data', icon: BarChart3 },
-    { id: 'sql', label: 'SQL', icon: Database },
-    { id: 'automation', label: 'Auto', icon: Cpu },
-    { id: 'media', label: 'Media', icon: ImageIcon },
-    { id: 'documents', label: 'Docs', icon: FileText },
+    { id: 'home', label: 'Home', fullLabel: 'Home Dashboard', icon: Home },
+    { id: 'chat', label: 'Chat', fullLabel: 'AI Co-Pilot Chat', icon: MessageSquare },
+    { id: 'code', label: 'Code', fullLabel: 'Code Studio', icon: Code2 },
+    { id: 'architecture', label: 'Graph', fullLabel: 'Architecture Graph', icon: Network },
+    { id: 'research', label: 'Research', fullLabel: 'Deep Web Research', icon: Globe2 },
+    { id: 'data', label: 'Data', fullLabel: 'Data Analytics', icon: BarChart3 },
+    { id: 'sql', label: 'SQL', fullLabel: 'SQL Database', icon: Database },
+    { id: 'automation', label: 'Auto', fullLabel: 'Workflows (DAG)', icon: Cpu },
+    { id: 'media', label: 'Media', fullLabel: 'Media Studio', icon: ImageIcon },
+    { id: 'documents', label: 'Docs', fullLabel: 'Document Analyzer', icon: FileText },
   ];
 
   const bottomItems = [
-    { id: 'models', label: 'Models', icon: Sliders },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'models', label: 'Models', fullLabel: 'Model & Vault Registry', icon: Sliders },
+    { id: 'settings', label: 'Settings', fullLabel: 'System Settings', icon: Settings },
   ];
 
   return (
-    <nav className="left-sidebar">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', alignItems: 'center' }}>
+    <nav className={`left-sidebar ${isExpanded ? 'expanded' : ''}`}>
+      {/* Sidebar Expand/Collapse Toggle */}
+      <div
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isExpanded ? 'space-between' : 'center',
+          padding: isExpanded ? '0 10px 8px 10px' : '0 0 6px 0',
+          borderBottom: '1px solid var(--border-subtle)',
+          marginBottom: '4px',
+        }}
+      >
+        {isExpanded && (
+          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+            WORKSPACES
+          </span>
+        )}
+        <button
+          className="icon-btn"
+          onClick={() => setIsExpanded(!isExpanded)}
+          title={isExpanded ? 'Collapse Menu' : 'Expand Menu'}
+          style={{ width: '26px', height: '26px' }}
+        >
+          {isExpanded ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
+        </button>
+      </div>
+
+      {/* Primary Perspectives Navigation */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePerspective === item.id;
@@ -52,24 +84,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               className={`nav-item ${isActive ? 'active' : ''}`}
               onClick={() => onSelectPerspective(item.id)}
-              title={item.label}
+              title={item.fullLabel}
             >
-              <Icon size={17} />
-              <span>{item.label}</span>
+              <Icon size={16} />
+              <span>{isExpanded ? item.fullLabel : item.label}</span>
             </button>
           );
         })}
       </div>
 
+      {/* Bottom Settings & Vault Navigation */}
       <div
         style={{
           marginTop: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1px',
+          gap: '2px',
           width: '100%',
-          alignItems: 'center',
-          paddingTop: '4px',
+          paddingTop: '6px',
           borderTop: '1px solid var(--border-subtle)',
         }}
       >
@@ -81,10 +113,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               key={item.id}
               className={`nav-item ${isActive ? 'active' : ''}`}
               onClick={() => onSelectPerspective(item.id)}
-              title={item.label}
+              title={item.fullLabel}
             >
-              <Icon size={18} />
-              <span>{item.label}</span>
+              <Icon size={16} />
+              <span>{isExpanded ? item.fullLabel : item.label}</span>
             </button>
           );
         })}

@@ -13,6 +13,7 @@ import {
   Download,
   Maximize2,
   Minimize2,
+  X,
 } from 'lucide-react';
 
 export interface TraceStep {
@@ -33,6 +34,7 @@ export interface ExecutionTimelineProps {
   onCancel?: () => Promise<void> | void;
   onCancelExecution?: () => Promise<void> | void;
   isStreaming?: boolean;
+  onClose?: () => void;
 }
 
 export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
@@ -43,6 +45,7 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
   onCancel,
   onCancelExecution,
   isStreaming,
+  onClose,
 }) => {
   const handleCancel = onCancel || onCancelExecution;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -112,24 +115,34 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
           <span>Observability & Trace</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <span className="badge badge-blue">{activeAgent || 'Orchestrator'}</span>
+          <span className="badge">{activeAgent || 'Orchestrator'}</span>
           {isStreaming && handleCancel && (
             <button
               onClick={handleCancel}
               style={{
-                height: '20px',
+                height: '18px',
                 padding: '0 5px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid var(--danger)',
+                background: '#281c1c',
+                border: '1px solid #4a2424',
                 borderRadius: 'var(--radius-sm)',
                 color: '#f87171',
-                fontSize: '9.5px',
+                fontSize: '9px',
                 fontWeight: '600',
                 cursor: 'pointer',
               }}
               title="Cancel Current Execution"
             >
               STOP
+            </button>
+          )}
+          {onClose && (
+            <button
+              className="icon-btn"
+              onClick={onClose}
+              title="Hide Observability Panel"
+              style={{ width: '20px', height: '20px' }}
+            >
+              <X size={12} />
             </button>
           )}
         </div>

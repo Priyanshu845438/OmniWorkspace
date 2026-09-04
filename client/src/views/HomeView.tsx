@@ -77,19 +77,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-          <span className="badge badge-blue">Open Source AI Platform</span>
-          <span className="badge badge-green">Local-First Privacy</span>
-          <span className="badge badge-amber">BYOK Enabled</span>
+      <div style={{ marginBottom: '28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+          <span className="badge">Open Source Platform</span>
+          <span className="badge">Local-First Privacy</span>
+          <span className="badge">BYOK Encrypted</span>
         </div>
-        <h1 style={{ fontSize: '28px', fontWeight: '700', letterSpacing: '-0.03em', marginBottom: '10px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '8px', color: '#ffffff' }}>
           OmniWorkspace
         </h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '15px', maxWidth: '750px' }}>
-          A production-quality, model-agnostic workspace orchestrating{' '}
-          <strong>MODEL + TOOL + AGENT + CONTEXT + DATA + WORKFLOW + VERIFICATION</strong>.
-          Accomplish any digital engineering, research, and analysis task from one unified cockpit.
+        <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', maxWidth: '750px', lineHeight: '1.5' }}>
+          A model-agnostic workspace orchestrating{' '}
+          <strong style={{ color: '#ffffff' }}>MODEL + TOOL + AGENT + CONTEXT + DATA + WORKFLOW + VERIFICATION</strong>.
+          Accomplish software engineering, research, and analysis tasks from one unified cockpit.
         </p>
       </div>
 
@@ -98,24 +98,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '16px',
-          marginBottom: '32px',
+          gap: '14px',
+          marginBottom: '28px',
         }}
       >
         <div
           style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px',
+            borderRadius: 'var(--radius-sm)',
+            padding: '14px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            <ShieldCheck size={16} />
-            <span style={{ fontSize: '12px', fontWeight: '600' }}>SECURITY STATUS</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <ShieldCheck size={15} color="var(--link-color)" />
+            <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>SECURITY STATUS</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--success)' }}>Guarded (Level 0-4)</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>Guarded (Level 0-4)</div>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
             Path shields & injection defense active
           </div>
         </div>
@@ -124,18 +124,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
           style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px',
+            borderRadius: 'var(--radius-sm)',
+            padding: '14px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            <Zap size={16} />
-            <span style={{ fontSize: '12px', fontWeight: '600' }}>REGISTERED TOOLS</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <Zap size={15} color="var(--link-color)" />
+            <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>REGISTERED TOOLS</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)' }}>
-            {healthInfo?.toolCount || 24} Active Tools
+          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>
+            {healthInfo?.toolCount || 28} Active Tools
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
             Files, Code, Terminal, Git, Web, SQL, Media
           </div>
         </div>
@@ -144,33 +144,33 @@ export const HomeView: React.FC<HomeViewProps> = ({
           style={{
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            padding: '16px',
+            borderRadius: 'var(--radius-sm)',
+            padding: '14px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            <Cpu size={16} />
-            <span style={{ fontSize: '12px', fontWeight: '600' }}>MODEL ROUTING</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+            <Cpu size={15} color="var(--link-color)" />
+            <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>MODEL ROUTING</span>
           </div>
-          <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-primary)' }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>
             Auto Capability Routing
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
             NVIDIA, OpenRouter, Ollama, OpenAI
           </div>
         </div>
       </div>
 
       {/* Task Launcher Grid */}
-      <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-primary)' }}>
+      <h2 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#ffffff' }}>
         Explore Specialized Workspaces
       </h2>
 
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+          gap: '14px',
         }}
       >
         {quickActions.map((action, idx) => {
@@ -181,48 +181,51 @@ export const HomeView: React.FC<HomeViewProps> = ({
               style={{
                 background: 'var(--bg-secondary)',
                 border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-md)',
-                padding: '20px',
+                borderRadius: 'var(--radius-sm)',
+                padding: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'border-color 0.2s, transform 0.15s',
+                transition: 'border-color 0.15s',
                 cursor: 'pointer',
               }}
               onClick={() => onSelectPerspective(action.perspective)}
             >
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                   <div
                     style={{
-                      width: '36px',
-                      height: '36px',
+                      width: '32px',
+                      height: '32px',
                       borderRadius: 'var(--radius-sm)',
                       background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-subtle)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: 'var(--accent-primary)',
+                      color: '#ffffff',
                     }}
                   >
-                    <Icon size={20} />
+                    <Icon size={16} />
                   </div>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Enter workspace →</span>
+                  <span className="action-link" style={{ fontSize: '11.5px', color: 'var(--link-color)', fontWeight: 500 }}>
+                    Enter workspace →
+                  </span>
                 </div>
-                <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '6px' }}>{action.title}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{action.desc}</p>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px', color: '#ffffff' }}>{action.title}</h3>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{action.desc}</p>
               </div>
 
               <button
                 className="btn-secondary"
-                style={{ marginTop: '16px', width: '100%', justifyContent: 'space-between', fontSize: '12px' }}
+                style={{ marginTop: '14px', width: '100%', justifyContent: 'space-between', fontSize: '11.5px' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onExecutePrompt(action.prompt);
                 }}
               >
                 <span>Run Agent Example</span>
-                <ArrowRight size={14} />
+                <ArrowRight size={13} />
               </button>
             </div>
           );

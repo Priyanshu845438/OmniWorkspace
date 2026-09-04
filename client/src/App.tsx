@@ -23,6 +23,7 @@ export const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [activePerspective, setActivePerspective] = useState<string>('home');
   const [isBottomCollapsed, setIsBottomCollapsed] = useState<boolean>(false);
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(false);
   const [healthInfo, setHealthInfo] = useState<any>(null);
 
   // Command Palette & Navigation State
@@ -93,6 +94,7 @@ export const App: React.FC = () => {
     };
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
+    setIsRightPanelOpen(true);
 
     const assistantMsgId = `ai_${Date.now()}`;
     const assistantMsg = {
@@ -266,14 +268,19 @@ export const App: React.FC = () => {
       {/* Top Header */}
       <Header
         onUniversalSubmit={(p) => {
+          setIsRightPanelOpen(true);
           executeOrchestrator(p);
           if (activePerspective === 'home') setActivePerspective('chat');
         }}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         activeModelName={activeModelName}
+        activePerspective={activePerspective}
         theme={theme}
         onToggleTheme={toggleTheme}
         isStreaming={isStreaming}
+        isRightPanelOpen={isRightPanelOpen}
+        onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
+        healthInfo={healthInfo}
       />
 
       {/* Main Workspace Body */}
@@ -385,14 +392,17 @@ export const App: React.FC = () => {
           </div>
         </main>
 
-        {/* Right AI Execution Timeline */}
-        <ExecutionTimeline
-          traces={traces}
-          activeAgent={activeAgent}
-          activeModelName={activeModelName}
-          isStreaming={isStreaming}
-          onCancel={handleCancelExecution}
-        />
+        {/* Right AI Execution Timeline (Collapsible, Space Optimized) */}
+        {isRightPanelOpen && (
+          <ExecutionTimeline
+            traces={traces}
+            activeAgent={activeAgent}
+            activeModelName={activeModelName}
+            isStreaming={isStreaming}
+            onCancel={handleCancelExecution}
+            onClose={() => setIsRightPanelOpen(false)}
+          />
+        )}
       </div>
 
       {/* Bottom Collapsible Panel */}
