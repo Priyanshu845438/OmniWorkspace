@@ -52,7 +52,7 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile, isAiSt
 
   const [fileFilter, setFileFilter] = useState('');
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
-  const [activeTabPath, setActiveTabPath] = useState<string>(initialFile || 'package.json');
+  const [activeTabPath, setActiveTabPath] = useState<string>(initialFile || '');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [gitStatus, setGitStatus] = useState<string>('Checking...');
@@ -200,21 +200,9 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile, isAiSt
   const closeTab = (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
     const remaining = openTabs.filter((t) => t.path !== path);
-    if (remaining.length === 0) {
-      setOpenTabs([
-        {
-          path: 'scratch.txt',
-          content: '// OmniWorkspace Scratchpad\n',
-          originalContent: '// OmniWorkspace Scratchpad\n',
-          isDirty: false,
-        },
-      ]);
-      setActiveTabPath('scratch.txt');
-    } else {
-      setOpenTabs(remaining);
-      if (activeTabPath === path) {
-        setActiveTabPath(remaining[remaining.length - 1].path);
-      }
+    setOpenTabs(remaining);
+    if (activeTabPath === path) {
+      setActiveTabPath(remaining.length > 0 ? remaining[remaining.length - 1].path : '');
     }
   };
 
@@ -297,7 +285,9 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile, isAiSt
       })
       .catch(() => {});
     loadDirectory(currentPath);
-    loadFile(initialFile || 'package.json');
+    if (initialFile) {
+      loadFile(initialFile);
+    }
     refreshGit();
   }, []);
 
@@ -1122,8 +1112,106 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile, isAiSt
           </form>
         )}
 
-        {/* Main Editor vs Diff Canvas */}
-        {viewMode === 'editor' ? (
+        {/* Main Editor vs Diff Canvas vs Empty Workspace Canvas */}
+        {openTabs.length === 0 ? (
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '32px',
+              textAlign: 'center',
+              background: '#070b14',
+            }}
+          >
+            <div
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.2), rgba(99, 102, 241, 0.2))',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '18px',
+              }}
+            >
+              <Sparkles size={28} color="#38bdf8" />
+            </div>
+
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', margin: '0 0 8px 0' }}>
+              OmniWorkspace Code Studio
+            </h2>
+            <p style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '440px', margin: '0 0 24px 0', lineHeight: 1.6 }}>
+              Select a file from the explorer on the left to view or edit, or prompt your AI Co-Pilot to develop code directly in this workspace.
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '28px' }}>
+              <button
+                className="btn-primary"
+                style={{ height: '32px', padding: '0 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => setShowOpenFolderModal(true)}
+              >
+                <FolderOpen size={14} />
+                <span>Open Project Folder</span>
+              </button>
+              <button
+                className="btn-secondary"
+                style={{ height: '32px', padding: '0 14px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => setShowNewFileInput(true)}
+              >
+                <Plus size={14} />
+                <span>Create New File</span>
+              </button>
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px',
+                maxWidth: '460px',
+                width: '100%',
+                textAlign: 'left',
+              }}
+            >
+              <div
+                style={{
+                  padding: '12px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  Browse Files
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Click any file in the Explorer on the left to open it in a tab.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  padding: '12px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                }}
+              >
+                <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
+                  Develop with AI
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Type in the bar above to generate, modify, or fix code in your project.
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : viewMode === 'editor' ? (
           <div style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', background: '#070b14' }}>
             {/* Gutter with line numbers */}
             <div
