@@ -1,58 +1,37 @@
-# OmniWorkspace Feature Maturity Matrix (Phase 2 Post-Hardening)
+# OmniWorkspace Feature Maturity Final Matrix (Phase 2 Zero-Gap Audit)
 
-This document reflects the **actual implementation reality** of OmniWorkspace following Phase 2: Integration, Production Hardening & End-to-End Execution.
-
-Features are classified using strict criteria:
-* **Production**: Fully implemented, connected to live backend systems, covered by automated unit/integration tests, zero simulated or placeholder data, real security gating.
-* **Functional**: Live and operational; handles primary flows with resilient fallbacks; may require additional user configuration (e.g. BYOK keys for external models).
-* **Partial**: Core backend and UI connected, but specialized sub-capabilities require specific external infrastructure.
-* **Simulation**: Features that simulate behaviour rather than executing real mutations (e.g. dry-run workflows).
-* **Mock**: Synthetic mockups or hardcoded responses (eliminated in completed features).
-* **Planned**: Architected on roadmap but pending implementation.
+This document reflects the verified implementation reality of OmniWorkspace following the completion of the Phase 2 Zero-Gap Audit.
 
 ---
 
-## 1. Core Subsystems Matrix
+## 1. Feature Maturity Final Matrix
 
-| Subsystem | Maturity Status | Live Backend Service | Verified By Tests | Notes & Security Gates |
-| :--- | :--- | :--- | :--- | :--- |
-| **Execution Contract** | **Production** | `server/src/types/execution_contract.ts` | `golden_pipeline_integration.test.ts` | Strongly-typed execution lifecycle, ApprovalState, CancellationState, CandidateRoute. |
-| **Golden Pipeline** | **Production** | `TaskOrchestrator.orchestrate(...)` | `task_orchestrator.test.ts`, `golden_pipeline_integration.test.ts` | 9-stage sequence: Intent ➔ Classification ➔ Capability Analysis ➔ Context ➔ Risk Analysis ➔ Model Selection ➔ Plan ➔ Agent Execution ➔ Verification. |
-| **Model Router** | **Production** | `ModelRouter.selectRoute(...)` | `model_router.test.ts`, `golden_pipeline_integration.test.ts` | Composite weighted scoring (context, priority, local affinity), dynamic fallback chains. |
-| **Provider Gateway** | **Production** | `ProviderGateway`, `OpenAICompatibleAdapter`, `OllamaAdapter` | Gateway error normalizer | Normalized error codes (AUTHENTICATION_FAILED, RATE_LIMIT_EXCEEDED, etc.), automatic secret scrubbing. |
-| **BYOK Credential Vault** | **Production** | `CredentialVault` | `tools_security.test.ts`, `diagnostics_exporter.test.ts` | AES-256-GCM authenticated encryption at rest, secure IVs, machine salt, 0% telemetry leakage. |
-| **Task Cancellation** | **Production** | `activeTasks` Map, `POST /api/orchestrate/cancel`, `AbortController` | `golden_pipeline_integration.test.ts` | End-to-end signal propagation: UI ➔ Server ➔ Agent ➔ Gateway ➔ Tool ➔ Child Process. |
-| **Context Engine** | **Production** | `ContextEngine`, `PathShield` | `task_orchestrator.test.ts` | Token-budgeted context assembly, active file, git status, terminal output, sensitive file exclusion. |
-| **Verification Engine** | **Production** | `VerificationEngine` | `golden_pipeline_integration.test.ts` | Automated compilation check (`npm run typecheck`), SQLite EXPLAIN execution plan, DAG validation. |
-| **Plugin Security** | **Production** | `PluginManager` | `security_hardening.test.ts` | Alphanumeric manifest ID validation, elevated permission gating (`terminal`, `database`, `writeWorkspace`). |
-| **SQLite Persistence** | **Production** | `WorkspaceDatabase` (`node:sqlite`) | `security_hardening.test.ts` | Durable storage for conversations, workflows, providers, audit logs using Node built-in SQLite engine. |
-| **PathShield** | **Production** | `PathShield` | `tools_security.test.ts` | Canonicalization, symlink escape defense, forbidden pattern blacklists (`.env`, `.git`, `credentials`). |
-| **CommandShield** | **Production** | `CommandShield` | `tools_security.test.ts` | Blocks hazardous shell commands (`rm -rf /`, fork bombs, curl piped to bash, sudo). |
-| **PromptDefense** | **Production** | `PromptDefense` | `prompt_injection_defense.test.ts` | System prompt hardening, external context quarantine `<untrusted_content>` tags. |
-
----
-
-## 2. Perspective Views Maturity Matrix
-
-| View | Maturity Status | Live Backend Connection | Key Capabilities | Verification |
-| :--- | :--- | :--- | :--- | :--- |
-| **Chat Studio** | **Production** | `POST /api/orchestrate/stream`, `POST /api/chat` | Natural language universal intent classification, streaming tokens, dual-model arena comparison, timeline inspection. | Live SSE streaming & cancellation verified |
-| **Code Studio** | **Production** | `GET/POST /api/workspace/files`, `GET/POST /api/workspace/file`, `GET /api/git/status` | File tree explorer, tab management, find/replace, git branch indicator, Side-by-Side Diff against disk, AI Review & Fix, AI Test & Repair. | File read/write, diffing, AI dispatch verified |
-| **SQL Console** | **Production** | `GET /api/sql/schema`, `POST /api/sql/query` | Schema table & column browser, query presets, live query execution, EXPLAIN plan inspection, CSV export, **Destructive SQL Confirmation Gating**. | `security_hardening.test.ts` |
-| **Data View** | **Production** | Client statistical engine + `data` agent integration | CSV import/export, statistical distribution (mean, median, min, max, IQR, stdDev), sorting, multi-column filters, SVG chart export, AI Dataset Analysis. | Real dataset computations verified |
-| **Research View** | **Production** | `POST /api/research/search`, `web_search` tool | Real web search queries via DDG HTML gateway, SSRF-guarded network fetching, epistemic badges (FACT, INFERENCE, ESTIMATE, UNKNOWN), AI Evidence Synthesis. | `security_hardening.test.ts` |
-| **Automation Studio** | **Production** | `GET/POST /api/workflows`, `POST /api/workflows/:id/run` | DAG editor, node configuration (trigger, action, condition, transform, output), visual step traversal, **Dry-Run Validation**, Live Execution, Export. | `golden_pipeline_integration.test.ts` |
-| **Document Studio** | **Production** | `GET /api/workspace/file`, `document` agent | Real workspace documentation browser (`README.md`, `ARCHITECTURE.md`, `SECURITY.md`, etc.), line/word/char counting, zero-fabrication AI summarization. | Workspace file loading & AI dispatch verified |
-| **Media Studio** | **Functional** | `GET /api/models`, `media` agent | Genuine model capability discovery, multimodal compatibility reporting (vision vs image generation), technical prompt & specification generation. (No fake renders). | Capability discovery & prompt synthesis verified |
-| **Architecture Graph** | **Production** | `GET /api/workspace/architecture` | Project indexer graph, dependency visualizer, symbol inspector, direct file open in Code Studio. | `project_indexer.test.ts` |
-| **Model Manager** | **Production** | `GET /api/models`, `GET /api/models/providers`, `POST /api/models/test` | Provider status, model enablement toggles, capability checklist, connection latency test, priority ranking. | Provider gateway connection test verified |
-| **Settings & Security** | **Production** | `GET /api/credentials/keys`, `POST /api/credentials/key`, `GET /api/diagnostics/export` | BYOK secret vault management (AES-256-GCM), theme switcher (dark/light), safe redacted diagnostic export. | `diagnostics_exporter.test.ts` |
+| Feature | Status | Evidence | Known Limitations |
+| :--- | :--- | :--- | :--- |
+| **Universal Chat** | Production | `POST /api/orchestrate/stream`, `POST /api/chat`, `ChatView.tsx`, `golden_pipeline_integration.test.ts` | Model Arena compares two models sequentially or concurrently via local server endpoints. |
+| **Model Router** | Production | `server/src/core/router/router.ts`, `tests/model_router.test.ts` (4 tests) | Composite weighted formula; fallbacks activate on 429/500/502/timeout; 401 halts to prevent repeated bad credential attempts. |
+| **Provider Gateway** | Production | `server/src/core/gateway/gateway.ts`, `error_normalizer.ts`, `ollama_adapter.ts`, `nvidia_adapter.ts` | Supports OpenAI-compatible, Ollama, NVIDIA, and OpenRouter protocols; SSE streaming and abort signal propagation verified. |
+| **BYOK Credential Vault** | Production | `server/src/core/credentials/vault.ts`, `tests/diagnostics_exporter.test.ts` | AES-256-GCM encryption with Scrypt PBKDF; credentials never stored in browser storage; automatic regex token redaction in exports. |
+| **Specialized Agents (8)** | Production | `server/src/core/agents/agent_factory.ts`, `base_agent.ts`, `tests/task_orchestrator.test.ts` | All 8 roles (`coding`, `research`, `data`, `sql`, `automation`, `media`, `document`, `general`) constrained to allowed tool categories. |
+| **Tool Registry & Execution** | Production | `server/src/core/tools/registry.ts`, `tests/tools_security.test.ts` (7 tests) | Enforces 5-tier permission levels (Level 0 Read to Level 4 Destructive); logs all executions to in-memory and SQLite audit trails. |
+| **Coding System** | Production | `server/src/core/tools/file_tools.ts`, `terminal_tools.ts`, `git_tools.ts`, `CodeView.tsx` | Strict understand ➔ plan ➔ modify ➔ test ➔ repair ➔ verify workflow; interactive file explorer, side-by-side diff, find/replace. |
+| **Project Intelligence** | Production | `server/src/core/intelligence/project_indexer.ts`, `tests/project_indexer.test.ts` | Parses AST symbols (functions, classes, interfaces), extracts imports, builds directed dependency graph and circular loop detector. |
+| **Research System** | Production | `server/src/core/tools/web_tools.ts`, `ResearchView.tsx`, `tests/security_hardening.test.ts` | Real web search queries via DDG HTML gateway; strict SSRF guards block private IPs, loopback, and cloud metadata endpoints. |
+| **SQL Studio & Safety Gates** | Production | `server/src/core/tools/data_and_sql_tools.ts`, `SqlView.tsx`, `tests/security_hardening.test.ts` | AST inspection classifies READ, WRITE, and DESTRUCTIVE; unconstrained DELETE and DROP TABLE blocked without confirmation. |
+| **Data Analysis** | Production | `server/src/core/tools/data_and_sql_tools.ts`, `DataView.tsx` | Parses CSV/JSON; computes exact numerical distributions (mean, median, min, max, stdDev); multi-column filtering; SVG chart previews. |
+| **Automation & DAG Engine** | Production | `server/src/core/workflows/workflow_engine.ts`, `AutomationView.tsx`, `tests/workflow_engine.test.ts` | Directed Acyclic Graph walk; condition evaluations; live backend execution and dry-run validation without client-side mock delays. |
+| **Document Analysis** | Production | `server/src/core/tools/media_automation_doc_tools.ts`, `DocumentView.tsx` | Workspace file loading, word/line/char counting, structured summarization without synthetic content. |
+| **Media Studio** | Functional | `server/src/core/tools/media_automation_doc_tools.ts`, `MediaView.tsx` | Truthful capability discovery; explicitly reports when no image_generation provider is configured; prompt & specification generator. |
+| **Extensible Plugin System** | Production | `server/src/core/plugins/plugin_manager.ts`, `tests/project_indexer.test.ts` | Alphanumeric manifest ID validation; permission declarations; unapproved elevated plugins quarantined. |
+| **Security Boundaries** | Production | `PathShield`, `CommandShield`, `PromptDefense`, `tests/prompt_injection_defense.test.ts` | Workspace boundary enforcement; directory traversal defense; dangerous command blacklists; untrusted data quarantine tagging. |
+| **Electron Desktop Shell** | Production | `electron/src/main.ts`, `electron/src/preload.ts`, `electron/tsconfig.json` | `nodeIntegration: false`, `contextIsolation: true`, `sandbox: true`; minimal IPC bridge; external link popup suppression. |
+| **Persistence (SQLite)** | Production | `server/src/core/db/db.ts` (`node:sqlite`) | Durable tables for conversations, messages, workflows, runs, audit logs, and sample relational databases. |
 
 ---
 
-## 3. Epistemic & Security Commitments
+## 2. Epistemic Verification Principles
 
-1. **Local-First Zero Telemetry**: OmniWorkspace makes zero external telemetry pings. All credentials remain on the user's workstation.
-2. **Never Mask Failures**: Unconfigured capabilities (e.g. image diffusion without an active image provider) explicitly inform the user rather than faking results with static stock imagery.
-3. **Destructive SQL Safety**: Schema alteration and unconstrained deletions require explicit parameter `isUserConfirmed: true` and UI confirmation banners.
-4. **End-to-End Task Cancellation**: Halts running fetches, agent iterations, gateway streams, and kills child command processes with SIGTERM.
+1. **Zero Simulation in Production Paths**: Workflows, SQL executions, and file operations interact directly with live system services.
+2. **Never Mask Unsupported Capabilities**: Generative diffusion requires an authenticated image-generation provider; never faked with static image placeholders.
+3. **Defense-in-Depth**: PathShield canonicalizes all filesystem inputs before execution; CommandShield verifies shell arguments against dangerous injection patterns.
+4. **Local-First Zero Telemetry**: OmniWorkspace makes no remote telemetry pings. All user files and SQLite databases remain on local disk.

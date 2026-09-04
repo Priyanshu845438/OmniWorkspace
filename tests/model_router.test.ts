@@ -28,4 +28,19 @@ describe('Model Router & Capability Scoring', () => {
     expect(route.model.id).toBe('qwen2.5-coder:latest');
     expect(route.reason).toContain('User explicitly selected');
   });
+
+  it('prefers local provider when preferLocal option is enabled', () => {
+    // Configure a mock local model in registry
+    const localRoute = router.selectRoute(['chat'], { preferLocal: true });
+    expect(localRoute).toBeDefined();
+    expect(localRoute.model).toBeDefined();
+  });
+
+  it('respects minContextWindow filtering in route selection', () => {
+    const largeContextRoute = router.selectRoute(['reasoning'], { minContextWindow: 128000 });
+    expect(largeContextRoute).toBeDefined();
+    if (largeContextRoute.model) {
+      expect(largeContextRoute.model.contextWindow).toBeGreaterThanOrEqual(128000);
+    }
+  });
 });

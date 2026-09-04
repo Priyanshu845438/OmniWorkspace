@@ -52,40 +52,12 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ onAskAi }) => {
     setIsRunning(true);
     setRunResult(null);
 
-    // Reset node statuses
-    const initialStatuses: Record<string, NodeStatus> = {};
+    // Indicate nodes in execution
+    const runningStatuses: Record<string, NodeStatus> = {};
     activeWf.nodes.forEach((n: any) => {
-      initialStatuses[n.id] = { state: 'idle' };
+      runningStatuses[n.id] = { state: 'running' };
     });
-    setNodeStatuses(initialStatuses);
-
-    // Step-by-step visual animation through nodes
-    const nodes = activeWf.nodes;
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      setNodeStatuses((prev) => ({
-        ...prev,
-        [node.id]: { state: 'running' },
-      }));
-
-      // Simulate execution time per node
-      const latency = Math.floor(Math.random() * 150) + 80;
-      await new Promise((resolve) => setTimeout(resolve, latency));
-
-      setNodeStatuses((prev) => ({
-        ...prev,
-        [node.id]: {
-          state: 'completed',
-          durationMs: latency,
-          output: {
-            step: node.label,
-            type: node.type,
-            status: isDryRun ? 'DRY_RUN_VALIDATED' : 'OK',
-            timestamp: new Date().toISOString(),
-          },
-        },
-      }));
-    }
+    setNodeStatuses(runningStatuses);
 
     try {
       const res = await fetch(`/api/workflows/${activeWf.id}/run`, {
@@ -95,8 +67,29 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ onAskAi }) => {
       });
       const data = await res.json();
       setRunResult(data);
+
+      if (data && Array.isArray(data.stepLogs)) {
+        const finalStatuses: Record<string, NodeStatus> = {};
+        for (const log of data.stepLogs) {
+          finalStatuses[log.nodeId] = {
+            state: log.status === 'completed' ? 'completed' : log.status === 'failed' ? 'failed' : 'idle',
+            durationMs: log.durationMs,
+            output: log.output,
+          };
+        }
+        activeWf.nodes.forEach((n: any) => {
+          if (!finalStatuses[n.id]) {
+            finalStatuses[n.id] = { state: 'idle' };
+          }
+        });
+        setNodeStatuses(finalStatuses);
+      }
     } catch (err: any) {
-      // ignore
+      const errStatuses: Record<string, NodeStatus> = {};
+      activeWf.nodes.forEach((n: any) => {
+        errStatuses[n.id] = { state: 'failed', output: { error: err?.message || 'Execution error' } };
+      });
+      setNodeStatuses(errStatuses);
     } finally {
       setIsRunning(false);
     }
@@ -190,7 +183,7 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ onAskAi }) => {
           </div>
           <h1 style={{ fontSize: '24px', fontWeight: '700' }}>Workflow Automation & Orchestration</h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px' }}>
-            Directed Acyclic Graph (DAG) visual workflow builder with step execution simulation and output inspection.
+            Directed Acyclic Graph (DAG) visual workflow builder with live step execution and output inspection.
           </p>
         </div>
 
