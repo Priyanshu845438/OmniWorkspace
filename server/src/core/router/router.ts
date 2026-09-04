@@ -1,4 +1,4 @@
-import { ModelDefinition, ProviderConfig, ModelCapability, TaskClassification } from '../../types/index.js';
+import { ModelDefinition, ProviderConfig, ModelCapability, TaskClassification, CandidateRoute } from '../../types/index.js';
 import { ModelRegistry } from '../models/registry.js';
 import { CapabilityRegistry } from '../capabilities/registry.js';
 import { ProviderGateway } from '../gateway/gateway.js';
@@ -11,6 +11,7 @@ export interface RouteSelection {
   reason: string;
   matchedCapabilities: ModelCapability[];
   score: number;
+  fallbackChain: CandidateRoute[];
 }
 
 export class ModelRouter {
@@ -34,25 +35,7 @@ export class ModelRouter {
     const allProviders = this.registry.getAllProviders().filter((p) => p.enabled);
     const providerMap = new Map(allProviders.map((p) => [p.id, p]));
 
-    // 1. Manual selection override
-    if (manualModelId) {
-      const manualModel = this.registry.getModel(manualModelId);
-      if (manualModel && manualModel.enabled) {
-        const provider = providerMap.get(manualModel.provider);
-        if (provider) {
-          const match = CapabilityRegistry.scoreModelMatch(manualModel.capabilities, requiredCapabilities);
-          return {
-            model: manualModel,
-            provider,
-            reason: `User explicitly selected model '${manualModel.name}'.`,
-            matchedCapabilities: match.matched,
-            score: match.score,
-          };
-        }
-      }
-    }
-
-    // 2. Filter models with configured credentials or local availability
+    // 1. Filter models with configured credentials or local availability
     const candidates = allModels.filter((model) => {
       const provider = providerMap.get(model.provider);
       if (!provider) return false;
@@ -66,9 +49,47 @@ export class ModelRouter {
       return Boolean(key && key.trim().length > 0);
     });
 
+    // Helper to build fallback candidate list
+    const buildFallbackChain = (excludeModelId: string): CandidateRoute[] => {
+      return candidates
+        .filter((c) => c.id !== excludeModelId)
+        .map((c) => {
+          const p = providerMap.get(c.provider)!;
+          const match = CapabilityRegistry.scoreModelMatch(c.capabilities, requiredCapabilities);
+          return {
+            modelId: c.id,
+            modelName: c.name,
+            providerId: p.id,
+            providerName: p.name,
+            score: Math.round(match.score * 0.6 + c.priority * 0.3 + (p.isLocal ? 10 : 0)),
+            isLocal: Boolean(p.isLocal),
+            reason: `Supports ${match.matched.length}/${requiredCapabilities.length} capabilities with priority ${c.priority}.`,
+          };
+        })
+        .sort((a, b) => b.score - a.score);
+    };
+
+    // 2. Manual selection override
+    if (manualModelId) {
+      const manualModel = this.registry.getModel(manualModelId);
+      if (manualModel && manualModel.enabled) {
+        const provider = providerMap.get(manualModel.provider);
+        if (provider) {
+          const match = CapabilityRegistry.scoreModelMatch(manualModel.capabilities, requiredCapabilities);
+          return {
+            model: manualModel,
+            provider,
+            reason: `User explicitly selected model '${manualModel.name}'.`,
+            matchedCapabilities: match.matched,
+            score: match.score,
+            fallbackChain: buildFallbackChain(manualModel.id),
+          };
+        }
+      }
+    }
+
     if (candidates.length === 0) {
       // If no configured provider is found, fallback to the highest priority model in registry
-      // and let the gateway explain that credentials are required
       const fallbackModel = allModels.sort((a, b) => b.priority - a.priority)[0] || this.registry.getAllModels()[0];
       const provider = providerMap.get(fallbackModel.provider) || this.registry.getAllProviders()[0];
       return {
@@ -77,6 +98,7 @@ export class ModelRouter {
         reason: `Auto-selected baseline model '${fallbackModel.name}'. Key configuration required.`,
         matchedCapabilities: fallbackModel.capabilities,
         score: 50,
+        fallbackChain: [],
       };
     }
 
@@ -109,6 +131,7 @@ export class ModelRouter {
       reason,
       matchedCapabilities: winner.match.matched,
       score: Math.round(winner.compositeScore),
+      fallbackChain: buildFallbackChain(winner.model.id),
     };
   }
 

@@ -152,3 +152,6 @@ export interface VerificationResult {
   details: string;
   passed: boolean;
 }
+
+export * from './execution_contract.js';
+
