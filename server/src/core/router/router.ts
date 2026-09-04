@@ -28,18 +28,36 @@ export class ModelRouter {
    */
   public selectRoute(
     requiredCapabilities: ModelCapability[],
-    manualModelId?: string,
-    preferredProviderId?: string
+    manualModelIdOrOptions?: string | {
+      manualModelId?: string;
+      preferredProviderId?: string;
+      minContextWindow?: number;
+      preferLocal?: boolean;
+    },
+    legacyPreferredProviderId?: string
   ): RouteSelection {
+    const options = typeof manualModelIdOrOptions === 'object'
+      ? manualModelIdOrOptions
+      : {
+          manualModelId: manualModelIdOrOptions,
+          preferredProviderId: legacyPreferredProviderId,
+        };
+
+    const manualModelId = options.manualModelId;
+    const preferredProviderId = options.preferredProviderId;
+    const minContext = options.minContextWindow || 0;
+    const preferLocal = Boolean(options.preferLocal);
+
     const allModels = this.registry.getAllModels().filter((m) => m.enabled);
     const allProviders = this.registry.getAllProviders().filter((p) => p.enabled);
     const providerMap = new Map(allProviders.map((p) => [p.id, p]));
 
-    // 1. Filter models with configured credentials or local availability
+    // 1. Filter models with configured credentials or local availability & context window
     const candidates = allModels.filter((model) => {
       const provider = providerMap.get(model.provider);
       if (!provider) return false;
       if (preferredProviderId && provider.id !== preferredProviderId) return false;
+      if (minContext > 0 && model.contextWindow < minContext) return false;
 
       // Local models (like Ollama) don't require an API key
       if (provider.isLocal) return true;
@@ -107,8 +125,8 @@ export class ModelRouter {
       const provider = providerMap.get(model.provider)!;
       const match = CapabilityRegistry.scoreModelMatch(model.capabilities, requiredCapabilities);
 
-      // Total rank formula: (Capability match weight 60%) + (Model Priority weight 30%) + (Local privacy bonus 10%)
-      const localBonus = provider.isLocal ? 10 : 0;
+      // Total rank formula: (Capability match weight 60%) + (Model Priority weight 30%) + (Local privacy bonus 10-25%)
+      const localBonus = provider.isLocal ? (preferLocal ? 25 : 10) : 0;
       const compositeScore = match.score * 0.6 + model.priority * 0.3 + localBonus;
 
       return {
