@@ -20,8 +20,9 @@
     "lint": "eslint . --ext .ts,.tsx || true",
     "test": "vitest run",
     "test:watch": "vitest",
-    "dist:win": "npm run build && electron-builder --win --x64",
-    "dist:all": "npm run build && electron-builder -mwl",
+    "dist:mac": "npm run build && electron-builder --mac dmg",
+    "dist:win": "npm run build && electron-builder --win nsis portable",
+    "dist:all": "npm run build && electron-builder --mac dmg --win nsis portable",
     "dist:check": "electron-builder --help"
   },
   "engines": {
@@ -79,6 +80,7 @@
       "dist-client/**/*",
       "dist-server/**/*",
       "dist-electron/**/*",
+      "resources/**/*",
       "package.json"
     ],
     "win": {
@@ -93,7 +95,9 @@
         "dmg",
         "zip"
       ],
-      "icon": "resources/icon.png"
+      "icon": "resources/icon.png",
+      "category": "public.app-category.developer-tools",
+      "identity": null
     },
     "nsis": {
       "oneClick": false,

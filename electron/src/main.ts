@@ -12,6 +12,7 @@ function startServerProcess() {
     try {
       serverProcess = fork(serverEntry, [], {
         env: { ...process.env, PORT: '3001' },
+        execArgv: ['--experimental-sqlite'],
         silent: true,
       });
       console.log('[OmniWorkspace Electron] Embedded local server started (PID:', serverProcess.pid, ')');
@@ -98,7 +99,16 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist-client/index.html'));
+    const loadProductionUrl = (retries = 20) => {
+      mainWindow?.loadURL('http://localhost:3001').catch(() => {
+        if (retries > 0) {
+          setTimeout(() => loadProductionUrl(retries - 1), 350);
+        } else {
+          mainWindow?.loadFile(path.join(__dirname, '../dist-client/index.html'));
+        }
+      });
+    };
+    loadProductionUrl();
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
