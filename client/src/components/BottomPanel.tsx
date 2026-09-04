@@ -10,6 +10,9 @@ import {
   Copy,
   Check,
   Zap,
+  GitBranch,
+  RefreshCw,
+  XCircle,
 } from 'lucide-react';
 
 interface BottomPanelProps {
@@ -128,26 +131,41 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
 
   if (isCollapsed) {
     return (
-      <div
-        style={{
-          height: '30px',
-          background: 'var(--bg-secondary)',
-          borderTop: '1px solid var(--border-subtle)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 12px',
-          fontSize: '11.5px',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-        }}
-        onClick={onToggleCollapse}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Terminal size={13} />
-          <span>Terminal • Problems • Git • Security Audit</span>
+      <div className="ide-status-bar" onClick={onToggleCollapse}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-primary)', fontWeight: 500 }}>
+            <GitBranch size={12} color="var(--text-accent)" />
+            <span>main</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '3px', opacity: 0.7 }}>
+            <RefreshCw size={11} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <XCircle size={11} color="var(--danger)" /> 0
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <AlertTriangle size={11} color="var(--warning)" /> 0
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', opacity: 0.85 }}>
+            <Terminal size={11} />
+            <span>Terminal</span>
+          </div>
         </div>
-        <ChevronUp size={14} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '10.5px' }}>
+          <span>OmniWorkspace AI: Ready</span>
+          <span style={{ opacity: 0.6 }}>•</span>
+          <span>BYOK Encrypted</span>
+          <span style={{ opacity: 0.6 }}>•</span>
+          <span>Ln 1, Col 1</span>
+          <span style={{ opacity: 0.6 }}>•</span>
+          <span>Spaces: 2</span>
+          <span style={{ opacity: 0.6 }}>•</span>
+          <span>UTF-8</span>
+          <ChevronUp size={12} style={{ opacity: 0.8 }} />
+        </div>
       </div>
     );
   }

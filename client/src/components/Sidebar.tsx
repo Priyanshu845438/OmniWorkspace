@@ -43,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <nav className="left-sidebar">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '100%', alignItems: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', width: '100%', alignItems: 'center' }}>
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePerspective === item.id;
@@ -54,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectPerspective(item.id)}
               title={item.label}
             >
-              <Icon size={18} />
+              <Icon size={17} />
               <span>{item.label}</span>
             </button>
           );
@@ -66,10 +66,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           marginTop: 'auto',
           display: 'flex',
           flexDirection: 'column',
-          gap: '4px',
+          gap: '1px',
           width: '100%',
           alignItems: 'center',
-          paddingTop: '8px',
+          paddingTop: '4px',
           borderTop: '1px solid var(--border-subtle)',
         }}
       >

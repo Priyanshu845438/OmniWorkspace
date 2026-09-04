@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="top-header">
       {/* Brand Identity */}
       <div className="brand-badge">
-        <Layers size={20} />
+        <Layers size={15} />
         <span>OmniWorkspace</span>
       </div>
 
@@ -48,15 +48,15 @@ export const Header: React.FC<HeaderProps> = ({
           className="universal-input"
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
-          placeholder="What do you want to accomplish? (e.g. 'Fix bug in auth', 'Research AI models', 'Query sales table', 'Analyze CSV')..."
+          placeholder="Search commands or instruct AI co-pilot... (e.g. 'Refactor auth', 'Explain graph', 'Query SQL')"
         />
         <button
           type="submit"
           className="command-submit-btn"
           disabled={!prompt.trim() || isStreaming}
         >
-          <Sparkles size={13} />
-          <span>{isStreaming ? 'Running...' : 'Execute'}</span>
+          <Sparkles size={11} />
+          <span>{isStreaming ? 'Running' : 'Run'}</span>
         </button>
       </form>
 
@@ -66,18 +66,19 @@ export const Header: React.FC<HeaderProps> = ({
           <button
             className="icon-btn"
             onClick={onOpenCommandPalette}
-            title="Open Command Palette (Cmd+K / Ctrl+K)"
+            title="Command Palette (Cmd+K / Ctrl+K)"
             style={{
-              padding: '0 8px',
-              height: '28px',
-              gap: '5px',
+              padding: '0 6px',
+              height: '22px',
+              width: 'auto',
+              gap: '4px',
               background: 'var(--bg-tertiary)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-sm)',
             }}
           >
-            <Command size={13} color="var(--accent-primary)" />
-            <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', fontWeight: '600', color: 'var(--text-secondary)' }}>
+            <Command size={11} color="var(--text-accent)" />
+            <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', fontWeight: '600', color: 'var(--text-secondary)' }}>
               ⌘K
             </span>
           </button>
@@ -88,8 +89,8 @@ export const Header: React.FC<HeaderProps> = ({
           <span>AI: Auto ({activeModelName || 'Optimal'})</span>
         </div>
 
-        <button className="icon-btn" onClick={onToggleTheme} title="Toggle Theme">
-          {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+        <button className="icon-btn" onClick={onToggleTheme} title="Toggle Theme" style={{ width: '22px', height: '22px' }}>
+          {theme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
         </button>
       </div>
     </header>
