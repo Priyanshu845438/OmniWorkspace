@@ -185,6 +185,7 @@ app.post('/api/orchestrate/stream', async (req, res) => {
     if (abortController.signal.aborted || err?.message?.includes('aborted') || err?.name === 'AbortError') {
       sendEvent('cancelled', { taskId, reason: 'Execution cancelled by user' });
     } else {
+      console.error(`[Orchestrate Error] Task ${taskId}:`, err.message || err);
       sendEvent('error', { taskId, error: err.message || 'Execution error' });
     }
     res.end();

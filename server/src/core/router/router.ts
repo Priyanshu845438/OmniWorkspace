@@ -214,9 +214,17 @@ export class ModelRouter {
         return { result, usedModel: currentModel, usedProvider: currentProvider };
       } catch (err: any) {
         lastError = err as Error;
+
+        // If the user explicitly aborted (clicked STOP or sent a new message), do NOT fallback — stop immediately
+        if (signal?.aborted || err?.name === 'AbortError') {
+          throw lastError;
+        }
+
         const errMsg = (lastError.message || '').toLowerCase();
         const causeMsg = ((lastError as any)?.cause?.message || '').toLowerCase();
         const fullErr = `${errMsg} ${causeMsg}`;
+
+        console.warn(`[Router Fallback] Model '${currentModel.name}' (${currentProvider.name}) failed: ${lastError.message}`);
 
         const isRecoverable =
           fullErr.includes('429') ||
@@ -234,8 +242,7 @@ export class ModelRouter {
           fullErr.includes('not running') ||
           fullErr.includes('connection refused') ||
           fullErr.includes('networkerror') ||
-          fullErr.includes('network error') ||
-          fullErr.includes('abort');
+          fullErr.includes('network error');
 
         if (isRecoverable && i + 1 < attemptQueue.length) {
           const nextModel = attemptQueue[i + 1];

@@ -86,6 +86,12 @@ export const App: React.FC = () => {
    * Connects to the SSE `/api/orchestrate/stream` endpoint for live streaming tokens & traces.
    */
   const executeOrchestrator = async (prompt: string, manualAgent?: string, activeFilePath?: string) => {
+    // Abort any in-flight previous request cleanly before starting a new one
+    if (currentAbortControllerRef.current) {
+      currentAbortControllerRef.current.abort();
+      currentAbortControllerRef.current = null;
+    }
+
     const userMsg = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -95,6 +101,8 @@ export const App: React.FC = () => {
     setMessages((prev) => [...prev, userMsg]);
     setIsStreaming(true);
     setIsRightPanelOpen(true);
+    setTraces([]);
+    setActiveAgent('');
 
     const assistantMsgId = `ai_${Date.now()}`;
     const assistantMsg = {
