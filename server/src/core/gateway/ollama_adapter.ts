@@ -1,5 +1,6 @@
 import { ModelDefinition, ToolDefinition, ToolCallRequest } from '../../types/index.js';
 import { ProviderAdapter, ChatMessage, StreamChunk } from './base.js';
+import { normalizeProviderError } from './error_normalizer.js';
 
 export class OllamaAdapter implements ProviderAdapter {
   private defaultBaseUrl: string;
@@ -73,7 +74,8 @@ export class OllamaAdapter implements ProviderAdapter {
 
     if (!res.ok) {
       const errText = await res.text();
-      throw new Error(`Ollama Error (${res.status}): ${errText}`);
+      const norm = normalizeProviderError(res.status, errText, 'Ollama');
+      throw new Error(`[${norm.code}] ${norm.message}`);
     }
 
     if (!res.body) {
