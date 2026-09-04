@@ -32,6 +32,14 @@ const DATA_DIR = path.join(WORKSPACE_ROOT, '.omni-data');
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(async (_req, _res, next) => {
+  try {
+    await workspaceDb.waitForReady();
+  } catch (err) {
+    console.error('[OmniWorkspace] DB init wait error:', err);
+  }
+  next();
+});
 
 // Core System Initialization
 const pathShield = new PathShield(WORKSPACE_ROOT);

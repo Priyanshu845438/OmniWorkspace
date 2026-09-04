@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { ToolRegistry } from '../server/src/core/tools/registry.js';
 import { registerDataAndSqlTools } from '../server/src/core/tools/data_sql_tools.js';
 import { registerWebTools } from '../server/src/core/tools/web_tools.js';
@@ -6,7 +6,7 @@ import { PermissionManager } from '../server/src/core/security/permissions.js';
 import { PathShield } from '../server/src/core/security/path_shield.js';
 import { PluginManager, PluginManifest } from '../server/src/core/plugins/plugin_manager.js';
 import { ModelRegistry } from '../server/src/core/models/registry.js';
-import { DatabaseSync } from 'node:sqlite';
+import { WorkspaceDatabase } from '../server/src/core/db/db.js';
 import os from 'os';
 import path from 'path';
 
@@ -17,13 +17,17 @@ describe('Security Hardening & Boundary Enforcement', () => {
   const toolRegistry = new ToolRegistry(pm);
   const modelRegistry = new ModelRegistry();
 
-  // In-memory test SQLite DB
-  const db = new DatabaseSync(':memory:');
-  db.exec('CREATE TABLE test_users (id INTEGER PRIMARY KEY, username TEXT);');
-  db.exec("INSERT INTO test_users (username) VALUES ('alice'), ('bob');");
+  let wsDb: WorkspaceDatabase;
 
-  registerDataAndSqlTools(toolRegistry, pathShield, () => db);
-  registerWebTools(toolRegistry);
+  beforeAll(async () => {
+    wsDb = new WorkspaceDatabase();
+    await wsDb.waitForReady();
+    const db = wsDb.getRawDatabase();
+    db.exec('CREATE TABLE test_users (id INTEGER PRIMARY KEY, username TEXT);');
+    db.exec("INSERT INTO test_users (username) VALUES ('alice'), ('bob');");
+    registerDataAndSqlTools(toolRegistry, pathShield, () => wsDb.getRawDatabase());
+    registerWebTools(toolRegistry);
+  });
 
   it('allows safe read and write queries against database', async () => {
     const executeSql = toolRegistry.getTool('execute_sql');

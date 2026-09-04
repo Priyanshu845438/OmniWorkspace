@@ -8,10 +8,11 @@ describe('Chat Management & Long-Term Memory Learning', () => {
   let tempDir: string;
   let db: WorkspaceDatabase;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     tempDir = path.join(os.tmpdir(), 'omni-mem-test-' + Math.random().toString(36).slice(2));
     fs.mkdirSync(tempDir, { recursive: true });
     db = new WorkspaceDatabase(tempDir);
+    await db.waitForReady();
   });
 
   afterEach(() => {

@@ -1,24 +1,51 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, shell, Menu } from 'electron';
 import path from 'path';
-import { fork, ChildProcess } from 'child_process';
 
 let mainWindow: BrowserWindow | null = null;
-let serverProcess: ChildProcess | null = null;
 
-function startServerProcess() {
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
-  if (!isDev) {
-    const serverEntry = path.join(__dirname, '../dist-server/index.js');
-    try {
-      serverProcess = fork(serverEntry, [], {
-        env: { ...process.env, PORT: '3001' },
-        execArgv: ['--experimental-sqlite'],
-        silent: true,
-      });
-      console.log('[OmniWorkspace Electron] Embedded local server started (PID:', serverProcess.pid, ')');
-    } catch (err) {
-      console.error('[OmniWorkspace Electron] Failed to start local server process:', err);
-    }
+const SERVER_PORT = 3001;
+
+function log(msg: string) {
+  console.log(`[OmniWorkspace] ${msg}`);
+}
+
+function logError(msg: string, err?: unknown) {
+  console.error(`[OmniWorkspace ERROR] ${msg}`, err || '');
+}
+
+/**
+ * Start the embedded Express server by require()-ing the compiled
+ * server code directly in the Electron main process.
+ *
+ * This approach works because:
+ * 1. Electron's patched require() transparently resolves native
+ *    modules from the app.asar.unpacked/ directory.
+ * 2. No child process or utility process needed — the server
+ *    runs in-process which is simpler and more reliable.
+ * 3. The Express server's app.listen() call happens as a
+ *    side-effect of requiring the module.
+ */
+function startEmbeddedServer(): void {
+  const isDev = !app.isPackaged;
+
+  if (isDev) {
+    log('Dev mode — assuming external server on :3001');
+    return;
+  }
+
+  const serverEntry = path.join(app.getAppPath(), 'dist-server', 'index.js');
+  log(`Loading embedded server in-process from: ${serverEntry}`);
+
+  // Set env vars the server expects BEFORE requiring it
+  process.env.PORT = String(SERVER_PORT);
+  process.env.OMNI_WORKSPACE_ROOT = app.getPath('userData');
+  process.env.NODE_ENV = 'production';
+
+  try {
+    require(serverEntry);
+    log(`Embedded server loaded successfully on port ${SERVER_PORT}`);
+  } catch (err) {
+    logError('Failed to load embedded server:', err);
   }
 }
 
@@ -87,28 +114,46 @@ function createWindow() {
     title: 'OmniWorkspace — Universal AI Platform',
     icon: path.join(__dirname, '../resources/icon.png'),
     backgroundColor: '#0b0f19',
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
+      sandbox: false,
     },
   });
 
-  const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
+  const isDev = !app.isPackaged;
+
   if (isDev) {
+    log('Loading dev server at http://localhost:5173');
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    const loadProductionUrl = (retries = 20) => {
-      mainWindow?.loadURL('http://localhost:3001').catch(() => {
+    // In production, the Express server is already running in-process.
+    // Give it a tiny moment to bind to the port, then load the URL.
+    log(`Loading production UI from http://localhost:${SERVER_PORT}`);
+    const loadWithRetry = (retries = 20) => {
+      mainWindow?.loadURL(`http://localhost:${SERVER_PORT}`).catch((err) => {
+        log(`loadURL attempt failed (${retries} left): ${err.message}`);
         if (retries > 0) {
-          setTimeout(() => loadProductionUrl(retries - 1), 350);
+          setTimeout(() => loadWithRetry(retries - 1), 500);
         } else {
-          mainWindow?.loadFile(path.join(__dirname, '../dist-client/index.html'));
+          // Last resort: load the HTML directly from the asar
+          log('Falling back to direct loadFile from asar');
+          const htmlPath = path.join(app.getAppPath(), 'dist-client', 'index.html');
+          mainWindow?.loadFile(htmlPath).catch((e) => {
+            logError('loadFile fallback also failed:', e);
+          });
         }
       });
     };
-    loadProductionUrl();
+
+    // Small delay to let Express finish binding
+    setTimeout(() => loadWithRetry(), 1000);
   }
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -121,8 +166,14 @@ function createWindow() {
   });
 }
 
+// ── App Lifecycle ──────────────────────────────────────────────────
 app.whenReady().then(() => {
-  startServerProcess();
+  log(`App ready — packaged: ${app.isPackaged}, platform: ${process.platform}`);
+  log(`App path : ${app.getAppPath()}`);
+  log(`User data: ${app.getPath('userData')}`);
+
+  // Start server first (synchronous require), then create the UI
+  startEmbeddedServer();
   createMenu();
   createWindow();
 
@@ -134,10 +185,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (serverProcess) {
-    serverProcess.kill();
-    serverProcess = null;
-  }
   if (process.platform !== 'darwin') {
     app.quit();
   }
