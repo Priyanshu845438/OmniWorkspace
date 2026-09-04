@@ -26,7 +26,7 @@ COPY --from=builder /app/dist-client ./dist-client
 COPY --from=builder /app/dist-server ./dist-server
 COPY --from=builder /app/plugins ./plugins
 
-RUN mkdir -p /app/workspace/.omni-data && chown -R node:node /app
+RUN mkdir -p /app/workspace/.omni-data && cp -r /app/dist-client /app/workspace/dist-client && chown -R node:node /app
 
 EXPOSE 3001
 

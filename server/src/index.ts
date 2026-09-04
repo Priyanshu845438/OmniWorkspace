@@ -449,13 +449,27 @@ app.get('/api/diagnostics/export', (req, res) => {
 });
 
 // 16. Serve Production Frontend if Built
-const clientDist = path.join(WORKSPACE_ROOT, 'dist-client');
-if (fs.existsSync(clientDist)) {
+const clientDistCandidates = [
+  path.resolve(__dirname, '../dist-client'),
+  path.resolve(__dirname, '../../dist-client'),
+  path.join(process.cwd(), 'dist-client'),
+  path.join(WORKSPACE_ROOT, 'dist-client'),
+  '/app/dist-client',
+  '/app/workspace/dist-client',
+];
+const clientDist = clientDistCandidates.find(
+  (dir) => fs.existsSync(dir) && fs.existsSync(path.join(dir, 'index.html'))
+);
+
+if (clientDist) {
+  console.log(`[OmniWorkspace] Serving static production client from: ${clientDist}`);
   app.use(express.static(clientDist));
   app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
+    if (req.path.startsWith('/api') || req.path === '/healthz') return next();
     res.sendFile(path.join(clientDist, 'index.html'));
   });
+} else {
+  console.warn('[OmniWorkspace] Production client directory (dist-client) not found. Checked:', clientDistCandidates);
 }
 
 // Start listening
