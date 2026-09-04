@@ -25,7 +25,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activePerspective,
   onSelectPerspective,
 }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const navItems = [
     { id: 'home', label: 'Home', fullLabel: 'Home Dashboard', icon: Home },
@@ -47,34 +47,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <nav className={`left-sidebar ${isExpanded ? 'expanded' : ''}`}>
-      {/* Sidebar Expand/Collapse Toggle */}
+      {/* Sidebar Header & Toggle */}
       <div
         style={{
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: isExpanded ? 'space-between' : 'center',
-          padding: isExpanded ? '0 10px 8px 10px' : '0 0 6px 0',
+          padding: isExpanded ? '2px 10px 8px 10px' : '0 0 6px 0',
           borderBottom: '1px solid var(--border-subtle)',
-          marginBottom: '4px',
+          marginBottom: '6px',
         }}
       >
         {isExpanded && (
-          <span style={{ fontSize: '10.5px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.04em' }}>
+          <span style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
             WORKSPACES
           </span>
         )}
         <button
           className="icon-btn"
           onClick={() => setIsExpanded(!isExpanded)}
-          title={isExpanded ? 'Collapse Menu' : 'Expand Menu'}
-          style={{ width: '26px', height: '26px' }}
+          title={isExpanded ? 'Collapse Sidebar' : 'Expand Sidebar'}
+          style={{ width: '24px', height: '24px', border: 'none', background: 'transparent' }}
         >
-          {isExpanded ? <PanelLeftClose size={13} /> : <PanelLeftOpen size={13} />}
+          {isExpanded ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
         </button>
       </div>
 
-      {/* Primary Perspectives Navigation */}
+      {/* Primary Perspectives Navigation - 100% Left Aligned */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%' }}>
         {navItems.map((item) => {
           const Icon = item.icon;
@@ -86,14 +86,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectPerspective(item.id)}
               title={item.fullLabel}
             >
-              <Icon size={16} />
-              <span>{isExpanded ? item.fullLabel : item.label}</span>
+              <span className="nav-item-icon">
+                <Icon size={16} />
+              </span>
+              <span className="nav-item-label">
+                {isExpanded ? item.fullLabel : item.label}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Bottom Settings & Vault Navigation */}
+      {/* Bottom Settings & Vault Navigation - 100% Left Aligned */}
       <div
         style={{
           marginTop: 'auto',
@@ -105,6 +109,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           borderTop: '1px solid var(--border-subtle)',
         }}
       >
+        {isExpanded && (
+          <div style={{ padding: '0 10px 4px 10px', fontSize: '9.5px', fontWeight: 600, color: 'var(--text-muted)', letterSpacing: '0.06em' }}>
+            CONFIGURATION
+          </div>
+        )}
         {bottomItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePerspective === item.id;
@@ -115,8 +124,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => onSelectPerspective(item.id)}
               title={item.fullLabel}
             >
-              <Icon size={16} />
-              <span>{isExpanded ? item.fullLabel : item.label}</span>
+              <span className="nav-item-icon">
+                <Icon size={16} />
+              </span>
+              <span className="nav-item-label">
+                {isExpanded ? item.fullLabel : item.label}
+              </span>
             </button>
           );
         })}
