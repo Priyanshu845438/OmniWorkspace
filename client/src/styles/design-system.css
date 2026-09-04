@@ -395,7 +395,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
 
 /* Right Co-Pilot / Observability Panel */
 .right-panel {
-  width: 270px;
+  width: 290px;
   background-color: var(--bg-secondary);
   border-left: 1px solid var(--border-subtle);
   display: flex;
@@ -412,34 +412,90 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .panel-header {
-  height: 36px;
+  height: 38px;
   padding: 0 12px;
   border-bottom: 1px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
   color: var(--text-primary);
   flex-shrink: 0;
+  background: var(--bg-secondary);
 }
 
 .timeline-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 10px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+}
+
+.timeline-connector-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.timeline-step-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  position: relative;
+}
+
+.timeline-node-col {
+  width: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
+
+.timeline-marker {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.timeline-marker.completed {
+  border-color: rgba(34, 197, 94, 0.4);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.timeline-marker.running {
+  border-color: rgba(56, 189, 248, 0.6);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.timeline-marker.failed {
+  border-color: rgba(239, 68, 68, 0.6);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.timeline-connector-line {
+  width: 1px;
+  flex: 1;
+  background: var(--border-subtle);
+  margin-top: 3px;
+  margin-bottom: -7px;
 }
 
 .trace-card {
+  flex: 1;
+  min-width: 0;
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  padding: 6px 8px;
+  padding: 6px 9px;
   font-size: 11px;
   transition: border-color 0.12s, background-color 0.12s;
   color: var(--text-primary);
@@ -450,8 +506,8 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .trace-card.running {
-  border-color: var(--border-strong);
-  background-color: rgba(0, 0, 0, 0.03);
+  border-color: rgba(56, 189, 248, 0.4);
+  background-color: rgba(56, 189, 248, 0.03);
 }
 
 .trace-card.completed {
@@ -459,7 +515,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .trace-card.failed {
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.45);
   background-color: rgba(239, 68, 68, 0.04);
 }
 
@@ -470,6 +526,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   font-weight: 500;
   font-size: 11px;
   color: var(--text-primary);
+  user-select: none;
 }
 
 .trace-details {
@@ -481,9 +538,8 @@ a:hover, .action-link:hover, [role="link"]:hover {
   border-radius: var(--radius-sm);
   white-space: pre-wrap;
   word-break: break-all;
-  max-height: 140px;
+  max-height: 150px;
   overflow-y: auto;
-  margin-top: 6px;
   border: 1px solid var(--border-subtle);
 }
 

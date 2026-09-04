@@ -43,11 +43,25 @@ export class ProviderGateway {
     }
   }
 
+  public hasKeyForProvider(providerType: ProviderType): boolean {
+    const key = this.getApiKeyForProvider(providerType);
+    return Boolean(key && key.trim().length > 0);
+  }
+
   public async testProviderConnection(
     provider: ProviderConfig
   ): Promise<{ success: boolean; latencyMs: number; error?: string }> {
     const adapter = this.adapters.get(provider.type) || this.adapters.get('openai')!;
     const apiKey = this.getApiKeyForProvider(provider.type);
+
+    if (!provider.isLocal && (!apiKey || apiKey.trim().length === 0)) {
+      return {
+        success: false,
+        latencyMs: 0,
+        error: `API key not configured for ${provider.name}. Please save your API key in the Vault first.`,
+      };
+    }
+
     return adapter.testConnection(apiKey, provider.baseUrl);
   }
 

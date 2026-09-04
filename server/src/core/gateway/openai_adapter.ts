@@ -14,6 +14,14 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     baseUrl?: string
   ): Promise<{ success: boolean; latencyMs: number; error?: string }> {
     const url = `${baseUrl || this.defaultBaseUrl}/models`;
+    const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+    if (!apiKey && !isLocal) {
+      return {
+        success: false,
+        latencyMs: 0,
+        error: 'API key required for remote provider endpoint.',
+      };
+    }
     const start = Date.now();
     try {
       const headers: Record<string, string> = {

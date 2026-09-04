@@ -43,4 +43,21 @@ describe('Model Router & Capability Scoring', () => {
       expect(largeContextRoute.model.contextWindow).toBeGreaterThanOrEqual(128000);
     }
   });
+
+  it('rejects provider connection test when API key is not configured in vault', async () => {
+    const openRouterProvider = registry.getProvider('openrouter')!;
+    expect(openRouterProvider).toBeDefined();
+    const result = await gateway.testProviderConnection(openRouterProvider);
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('API key not configured');
+  });
+
+  it('prioritizes NVIDIA NIM over local Ollama when NVIDIA_API_KEY is set in vault', () => {
+    vault.setSecret('NVIDIA_API_KEY', 'nvapi-test-valid-key-mock');
+    const route = router.selectRoute(['chat', 'reasoning', 'tool_calling']);
+    expect(route).toBeDefined();
+    expect(route.provider.id).toBe('nvidia');
+    expect(route.model.id).toContain('nvidia');
+    expect(route.score).toBeGreaterThan(100);
+  });
 });

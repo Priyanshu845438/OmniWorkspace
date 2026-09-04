@@ -74,12 +74,14 @@ export class ModelRouter {
         .map((c) => {
           const p = providerMap.get(c.provider)!;
           const match = CapabilityRegistry.scoreModelMatch(c.capabilities, requiredCapabilities);
+          const hasKey = !p.isLocal && this.gateway.hasKeyForProvider(p.type);
+          const bonus = hasKey ? 30 : (p.isLocal && preferLocal ? 25 : 0);
           return {
             modelId: c.id,
             modelName: c.name,
             providerId: p.id,
             providerName: p.name,
-            score: Math.round(match.score * 0.6 + c.priority * 0.3 + (p.isLocal ? 10 : 0)),
+            score: Math.round(match.score * 0.6 + c.priority * 0.3 + bonus),
             isLocal: Boolean(p.isLocal),
             reason: `Supports ${match.matched.length}/${requiredCapabilities.length} capabilities with priority ${c.priority}.`,
           };
@@ -125,9 +127,13 @@ export class ModelRouter {
       const provider = providerMap.get(model.provider)!;
       const match = CapabilityRegistry.scoreModelMatch(model.capabilities, requiredCapabilities);
 
-      // Total rank formula: (Capability match weight 60%) + (Model Priority weight 30%) + (Local privacy bonus 10-25%)
-      const localBonus = provider.isLocal ? (preferLocal ? 25 : 10) : 0;
-      const compositeScore = match.score * 0.6 + model.priority * 0.3 + localBonus;
+      // Has active BYOK key configured by user in vault
+      const hasConfiguredKey = !provider.isLocal && this.gateway.hasKeyForProvider(provider.type);
+      const configuredBonus = hasConfiguredKey ? 30 : 0;
+
+      // Local bonus only if explicitly preferred by user or no cloud keys configured
+      const localBonus = provider.isLocal ? (preferLocal ? 25 : 0) : 0;
+      const compositeScore = match.score * 0.6 + model.priority * 0.3 + configuredBonus + localBonus;
 
       return {
         model,
@@ -177,10 +183,16 @@ export class ModelRouter {
         const p = providerMap.get(m.provider);
         if (!p) return false;
         if (p.isLocal) return true;
-        const key = this.gateway.getApiKeyForProvider(p.type);
-        return Boolean(key);
+        return this.gateway.hasKeyForProvider(p.type);
       })
-      .sort((a, b) => b.priority - a.priority);
+      .sort((a, b) => {
+        const pA = providerMap.get(a.provider);
+        const pB = providerMap.get(b.provider);
+        const hasKeyA = !pA?.isLocal && this.gateway.hasKeyForProvider(pA?.type || 'openai');
+        const hasKeyB = !pB?.isLocal && this.gateway.hasKeyForProvider(pB?.type || 'openai');
+        if (hasKeyA !== hasKeyB) return hasKeyA ? -1 : 1;
+        return b.priority - a.priority;
+      });
 
     const attemptQueue = [primaryRoute.model, ...fallbackCandidates];
     let lastError: Error | null = null;
@@ -200,16 +212,30 @@ export class ModelRouter {
           signal
         );
         return { result, usedModel: currentModel, usedProvider: currentProvider };
-      } catch (err) {
+      } catch (err: any) {
         lastError = err as Error;
-        const errMsg = lastError.message;
+        const errMsg = (lastError.message || '').toLowerCase();
+        const causeMsg = ((lastError as any)?.cause?.message || '').toLowerCase();
+        const fullErr = `${errMsg} ${causeMsg}`;
+
         const isRecoverable =
-          errMsg.includes('429') ||
-          errMsg.includes('500') ||
-          errMsg.includes('502') ||
-          errMsg.includes('503') ||
-          errMsg.includes('timeout') ||
-          errMsg.includes('fetch failed');
+          fullErr.includes('429') ||
+          fullErr.includes('500') ||
+          fullErr.includes('502') ||
+          fullErr.includes('503') ||
+          fullErr.includes('504') ||
+          fullErr.includes('timeout') ||
+          fullErr.includes('fetch failed') ||
+          fullErr.includes('failed to fetch') ||
+          fullErr.includes('econnrefused') ||
+          fullErr.includes('econnreset') ||
+          fullErr.includes('enotfound') ||
+          fullErr.includes('etimedout') ||
+          fullErr.includes('not running') ||
+          fullErr.includes('connection refused') ||
+          fullErr.includes('networkerror') ||
+          fullErr.includes('network error') ||
+          fullErr.includes('abort');
 
         if (isRecoverable && i + 1 < attemptQueue.length) {
           const nextModel = attemptQueue[i + 1];
@@ -217,7 +243,7 @@ export class ModelRouter {
             onFallback(
               currentModel.name,
               nextModel.name,
-              `Provider error encountered (${errMsg.slice(0, 100)}). Falling back safely to configured alternative.`
+              `Provider '${currentProvider.name}' unavailable (${lastError.message.slice(0, 90)}). Seamlessly switched to ${nextModel.name}.`
             );
           }
           continue;

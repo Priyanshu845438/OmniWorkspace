@@ -65,12 +65,27 @@ export class OllamaAdapter implements ProviderAdapter {
       }));
     }
 
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal,
-    });
+    let res: Response;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal,
+      });
+    } catch (fetchErr: any) {
+      const isOffline =
+        fetchErr?.message?.includes('fetch failed') ||
+        fetchErr?.message?.includes('ECONNREFUSED') ||
+        fetchErr?.cause?.message?.includes('ECONNREFUSED') ||
+        fetchErr?.cause?.code === 'ECONNREFUSED';
+      if (isOffline) {
+        throw new Error(
+          `Ollama daemon is not running at ${endpoint} (ECONNREFUSED). Please launch Ollama or switch to configured cloud models.`
+        );
+      }
+      throw fetchErr;
+    }
 
     if (!res.ok) {
       const errText = await res.text();

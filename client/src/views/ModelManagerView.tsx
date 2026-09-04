@@ -55,6 +55,30 @@ export const ModelManagerView: React.FC = () => {
   };
 
   const handleTestConnection = async (providerId: string) => {
+    const targetProvider = providers.find((p) => p.id === providerId);
+    if (!targetProvider) return;
+
+    const secretKeyName =
+      targetProvider.type === 'nvidia'
+        ? 'NVIDIA_API_KEY'
+        : targetProvider.type === 'openrouter'
+        ? 'OPENROUTER_API_KEY'
+        : targetProvider.type === 'openai'
+        ? 'OPENAI_API_KEY'
+        : 'CUSTOM_API_KEY';
+
+    const hasKey = targetProvider.isLocal || configuredKeys.includes(secretKeyName);
+    if (!hasKey && !targetProvider.isLocal) {
+      setTestResults((prev) => ({
+        ...prev,
+        [providerId]: {
+          success: false,
+          error: `API key required. Paste and save your ${targetProvider.name} key first.`,
+        },
+      }));
+      return;
+    }
+
     setTestingProvider(providerId);
     try {
       const res = await fetch(`/api/providers/${providerId}/test`, { method: 'POST' });
@@ -63,7 +87,10 @@ export const ModelManagerView: React.FC = () => {
     } catch (err: any) {
       setTestResults((prev) => ({
         ...prev,
-        [providerId]: { success: false, error: err.message },
+        [providerId]: {
+          success: false,
+          error: err.message,
+        },
       }));
     } finally {
       setTestingProvider(null);
