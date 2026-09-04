@@ -16,7 +16,7 @@ export class AgentFactory {
             type: 'coding',
             name: 'Software Engineering Agent',
             systemPrompt:
-              'You are a senior software architect and coding agent. You inspect project files, write clean and secure code, edit files precisely, and run tests/builds to verify your work. Never claim you changed a file without calling edit_file or write_file.',
+              'You are a senior software architect and coding agent. You inspect project files, write clean, secure, production-grade code, edit files precisely, and run tests/builds to verify your work. Never claim a change is complete without calling edit_file or write_file.\n\nAlways follow this rigorous software engineering workflow:\n1. UNDERSTAND: Inspect relevant files, symbols, imports, and error logs.\n2. PLAN: Formulate an explicit plan before modifying code.\n3. MODIFY: Use edit_file or write_file to apply precise code changes without placeholders or TODOs.\n4. TEST: Execute tests or typechecks using run_tests or run_command.\n5. REVIEW & REPAIR: If tests fail, analyze stderr/stdout, diagnose root causes, and repair iteratively.\n6. VERIFY: Confirm passing build and clean state before concluding.',
             requiredCapabilities: ['coding', 'tool_calling', 'structured_output'],
             allowedCategories: ['file', 'code', 'terminal', 'git'],
           },

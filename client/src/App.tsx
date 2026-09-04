@@ -84,7 +84,7 @@ export const App: React.FC = () => {
    * Handles natural language instructions typed into either the top command bar or the chat view.
    * Connects to the SSE `/api/orchestrate/stream` endpoint for live streaming tokens & traces.
    */
-  const executeOrchestrator = async (prompt: string, manualAgent?: string) => {
+  const executeOrchestrator = async (prompt: string, manualAgent?: string, activeFilePath?: string) => {
     const userMsg = {
       id: `user_${Date.now()}`,
       role: 'user',
@@ -112,7 +112,7 @@ export const App: React.FC = () => {
       const response = await fetch('/api/orchestrate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, agentType: manualAgent, taskId }),
+        body: JSON.stringify({ prompt, agentType: manualAgent, taskId, activeFilePath }),
         signal: controller.signal,
       });
 
@@ -321,9 +321,9 @@ export const App: React.FC = () => {
             {activePerspective === 'code' && (
               <CodeView
                 initialFile={selectedFileForCode || undefined}
-                onAskAi={(prompt) => {
+                onAskAi={(prompt, filePath) => {
                   setActivePerspective('chat');
-                  executeOrchestrator(prompt);
+                  executeOrchestrator(prompt, 'coding', filePath);
                 }}
               />
             )}

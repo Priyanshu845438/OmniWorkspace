@@ -35,7 +35,7 @@ interface OpenTab {
 }
 
 interface CodeViewProps {
-  onAskAi?: (prompt: string) => void;
+  onAskAi?: (prompt: string, activeFilePath?: string) => void;
   initialFile?: string;
 }
 
@@ -621,19 +621,50 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
             </button>
 
             {onAskAi && (
-              <button
-                className="btn-secondary"
-                style={{ height: '26px', padding: '0 8px', fontSize: '11px' }}
-                onClick={() =>
-                  onAskAi(
-                    `Explain and inspect the current file '${activeTab.path}':\n\n${activeTab.content.slice(0, 3000)}`
-                  )
-                }
-                title="Explain with AI Co-Pilot"
-              >
-                <Sparkles size={12} color="var(--accent-primary)" />
-                <span>Explain with AI</span>
-              </button>
+              <>
+                <button
+                  className="btn-secondary"
+                  style={{ height: '26px', padding: '0 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() =>
+                    onAskAi(
+                      `Review and fix issues in '${activeTab.path}'. Inspect typing, logic, security, and edge cases. Apply fixes and verify.`,
+                      activeTab.path
+                    )
+                  }
+                  title="Review & Fix with AI"
+                >
+                  <Sparkles size={12} color="var(--accent-primary)" />
+                  <span>Review & Fix</span>
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ height: '26px', padding: '0 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() =>
+                    onAskAi(
+                      `Run the automated test suite for '${activeTab.path}'. If any tests fail, diagnose the root cause, repair the code, and re-verify until clean.`,
+                      activeTab.path
+                    )
+                  }
+                  title="Run Tests & Repair Loop"
+                >
+                  <Play size={11} color="var(--success)" />
+                  <span>Test & Repair</span>
+                </button>
+                <button
+                  className="btn-secondary"
+                  style={{ height: '26px', padding: '0 8px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  onClick={() =>
+                    onAskAi(
+                      `Explain and inspect the current file '${activeTab.path}':\n\n${activeTab.content.slice(0, 3000)}`,
+                      activeTab.path
+                    )
+                  }
+                  title="Explain with AI Co-Pilot"
+                >
+                  <Code2 size={12} />
+                  <span>Explain</span>
+                </button>
+              </>
             )}
 
             <button
