@@ -1,5 +1,7 @@
 :root {
-  /* Ultra-Dark Matte Obsidian & Pure White Text System */
+  /* ==========================================================================
+     Dark Mode Tokens (Matte Obsidian & Pure White Text)
+     ========================================================================== */
   --bg-primary: #0a0b0f;
   --bg-secondary: #11131a;
   --bg-tertiary: #171a24;
@@ -12,9 +14,9 @@
   --border-strong: #2e3447;
   --border-accent: #38bdf8;
 
-  /* Text: All pure white & high-contrast light slate */
+  /* Text Colors */
   --text-primary: #ffffff;
-  --text-secondary: #e2e8f0;
+  --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
   --text-accent: #38bdf8;
 
@@ -22,11 +24,23 @@
   --link-color: #38bdf8;
   --link-hover: #7dd3fc;
 
-  /* Accents & Status */
-  --accent-primary: #1f2430;
-  --accent-hover: #293040;
-  --accent-glow: rgba(56, 189, 248, 0.12);
+  /* Buttons & Badges (Clean Neutral Monochrome) */
+  --btn-bg: #1f232d;
+  --btn-color: #ffffff;
+  --btn-border: #31374a;
+  --btn-hover-bg: #282f3d;
 
+  --btn-secondary-bg: #151821;
+  --btn-secondary-color: #ffffff;
+  --btn-secondary-border: #262c3b;
+  --btn-secondary-hover-bg: #1d212d;
+
+  --badge-bg: #191c26;
+  --badge-color: #ffffff;
+  --badge-border: #282e3e;
+
+  /* Status Colors */
+  --status-dot-bg: #34d399;
   --success: #34d399;
   --warning: #fbbf24;
   --danger: #f87171;
@@ -39,38 +53,57 @@
   --radius-md: 4px;
   --radius-lg: 6px;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 3px 6px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.6);
-
   --header-height: 42px;
   --sidebar-width: 52px;
 }
 
 [data-theme='light'] {
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f3f3;
-  --bg-tertiary: #e5e5e5;
-  --bg-hover: #e8e8e8;
+  /* ==========================================================================
+     Light Mode Tokens (Clean Studio Gray & High Contrast Charcoal Text)
+     ========================================================================== */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f1f5f9;
+  --bg-hover: #e2e8f0;
   --bg-card: #ffffff;
-  --bg-sidebar: #2c2c2c;
-  --bg-terminal: #1e1e1e;
+  --bg-sidebar: #f8fafc;
+  --bg-terminal: #0f172a;
 
-  --border-subtle: #e5e5e5;
-  --border-strong: #cecece;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
   --border-accent: #0284c7;
 
-  --text-primary: #111827;
-  --text-secondary: #374151;
-  --text-muted: #6b7280;
+  /* Text Colors */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   --text-accent: #0284c7;
 
+  /* Links: Rich Ocean Sky Blue */
   --link-color: #0284c7;
   --link-hover: #0369a1;
 
-  --accent-primary: #e5e7eb;
-  --accent-hover: #d1d5db;
-  --accent-glow: rgba(2, 132, 199, 0.1);
+  /* Buttons & Badges (Clean Neutral Light) */
+  --btn-bg: #f1f5f9;
+  --btn-color: #0f172a;
+  --btn-border: #cbd5e1;
+  --btn-hover-bg: #e2e8f0;
+
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-color: #0f172a;
+  --btn-secondary-border: #e2e8f0;
+  --btn-secondary-hover-bg: #f8fafc;
+
+  --badge-bg: #f1f5f9;
+  --badge-color: #334155;
+  --badge-border: #cbd5e1;
+
+  /* Status Colors */
+  --status-dot-bg: #10b981;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #0284c7;
 }
 
 * {
@@ -113,7 +146,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   background-color: var(--bg-primary);
 }
 
-/* Top Header (Detailed Engineering Titlebar) */
+/* Top Header */
 .top-header {
   height: var(--header-height);
   background-color: var(--bg-secondary);
@@ -133,13 +166,13 @@ a:hover, .action-link:hover, [role="link"]:hover {
   font-weight: 600;
   font-size: 13px;
   letter-spacing: -0.01em;
-  color: #ffffff;
+  color: var(--text-primary);
   user-select: none;
   flex-shrink: 0;
 }
 
 .brand-badge svg {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 /* Universal Command Bar */
@@ -159,7 +192,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 0 70px 0 10px;
-  color: #ffffff;
+  color: var(--text-primary);
   font-size: 11.5px;
   outline: none;
   transition: border-color 0.12s, box-shadow 0.12s;
@@ -174,13 +207,13 @@ a:hover, .action-link:hover, [role="link"]:hover {
   color: var(--text-muted);
 }
 
-/* Clean Neutral Monochrome Run Button (No Colory Buttons) */
+/* Clean Neutral Monochrome Run Button */
 .command-submit-btn {
   position: absolute;
   right: 3px;
-  background: #202430;
-  color: #ffffff;
-  border: 1px solid #313749;
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  border: 1px solid var(--btn-border);
   border-radius: 2px;
   padding: 2px 8px;
   height: 22px;
@@ -194,8 +227,8 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .command-submit-btn:hover {
-  background: #282f3f;
-  border-color: #424a61;
+  background: var(--btn-hover-bg);
+  border-color: var(--border-strong);
 }
 
 .command-submit-btn:disabled {
@@ -221,14 +254,14 @@ a:hover, .action-link:hover, [role="link"]:hover {
   height: 24px;
   font-size: 11px;
   font-weight: 500;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .model-pill .status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background-color: #34d399;
+  background-color: var(--status-dot-bg);
 }
 
 .icon-btn {
@@ -236,7 +269,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   padding: 3px;
-  color: #ffffff;
+  color: var(--text-primary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -248,7 +281,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
 
 .icon-btn:hover {
   background: var(--bg-hover);
-  color: #ffffff;
+  color: var(--text-primary);
   border-color: var(--border-subtle);
 }
 
@@ -288,7 +321,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   background: transparent;
   border: none;
   border-left: 2px solid transparent;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -308,6 +341,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   padding: 0;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
   gap: 2px;
   font-size: 8.5px;
 }
@@ -330,17 +364,17 @@ a:hover, .action-link:hover, [role="link"]:hover {
 
 .nav-item:hover {
   background-color: var(--bg-hover);
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .nav-item.active {
   background-color: var(--bg-tertiary);
-  color: #ffffff;
+  color: var(--text-primary);
   border-left: 2px solid var(--border-accent);
 }
 
 .nav-item.active svg {
-  color: #ffffff;
+  color: var(--border-accent);
 }
 
 /* Center Workspace Area */
@@ -359,7 +393,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   padding: 20px 24px;
 }
 
-/* Right Co-Pilot / Observability Panel (Optimized Space) */
+/* Right Co-Pilot / Observability Panel */
 .right-panel {
   width: 270px;
   background-color: var(--bg-secondary);
@@ -388,7 +422,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #ffffff;
+  color: var(--text-primary);
   flex-shrink: 0;
 }
 
@@ -408,7 +442,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   padding: 6px 8px;
   font-size: 11px;
   transition: border-color 0.12s, background-color 0.12s;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .trace-card:hover {
@@ -417,7 +451,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
 
 .trace-card.running {
   border-color: var(--border-strong);
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(0, 0, 0, 0.03);
 }
 
 .trace-card.completed {
@@ -425,8 +459,8 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .trace-card.failed {
-  border-color: rgba(248, 113, 113, 0.4);
-  background-color: rgba(248, 113, 113, 0.04);
+  border-color: rgba(239, 68, 68, 0.4);
+  background-color: rgba(239, 68, 68, 0.04);
 }
 
 .trace-header {
@@ -435,13 +469,13 @@ a:hover, .action-link:hover, [role="link"]:hover {
   justify-content: space-between;
   font-weight: 500;
   font-size: 11px;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .trace-details {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   background: var(--bg-primary);
   padding: 6px 8px;
   border-radius: var(--radius-sm);
@@ -481,7 +515,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   padding: 0 10px;
   height: 100%;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 1px solid transparent;
   display: flex;
@@ -492,11 +526,11 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .tab-btn:hover {
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .tab-btn.active {
-  color: #ffffff;
+  color: var(--text-primary);
   border-bottom: 1px solid var(--border-accent);
   font-weight: 500;
 }
@@ -504,7 +538,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
 .terminal-viewport {
   flex: 1;
   background-color: var(--bg-terminal);
-  color: #ffffff;
+  color: #e2e8f0;
   font-family: var(--font-mono);
   font-size: 11.5px;
   padding: 8px 12px;
@@ -523,7 +557,7 @@ a:hover, .action-link:hover, [role="link"]:hover {
   justify-content: space-between;
   padding: 0 10px;
   font-size: 11px;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
   font-family: var(--font-sans);
@@ -534,11 +568,11 @@ a:hover, .action-link:hover, [role="link"]:hover {
   background-color: var(--bg-hover);
 }
 
-/* Buttons - Clean Neutral Dark (No Colory Buttons) */
+/* Buttons - Theme-Aware Clean Neutral Styling */
 .btn-primary {
-  background: #1f232d;
-  color: #ffffff;
-  border: 1px solid #31374a;
+  background: var(--btn-bg);
+  color: var(--btn-color);
+  border: 1px solid var(--btn-border);
   border-radius: var(--radius-sm);
   padding: 0 12px;
   height: 26px;
@@ -552,14 +586,14 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .btn-primary:hover {
-  background: #282f3d;
-  border-color: #424b61;
+  background: var(--btn-hover-bg);
+  border-color: var(--border-strong);
 }
 
 .btn-secondary {
-  background: #151821;
-  color: #ffffff;
-  border: 1px solid #262c3b;
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-color);
+  border: 1px solid var(--btn-secondary-border);
   border-radius: var(--radius-sm);
   padding: 0 12px;
   height: 26px;
@@ -573,11 +607,11 @@ a:hover, .action-link:hover, [role="link"]:hover {
 }
 
 .btn-secondary:hover {
-  background: #1d212d;
-  border-color: #353c50;
+  background: var(--btn-secondary-hover-bg);
+  border-color: var(--border-strong);
 }
 
-/* Neutral Monochrome Badges (No Colory Rainbow Fills) */
+/* Badges - Theme-Aware Clean Micro-Labels */
 .badge {
   padding: 1px 7px;
   border-radius: 3px;
@@ -585,9 +619,9 @@ a:hover, .action-link:hover, [role="link"]:hover {
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0.01em;
-  background: #191c26;
-  color: #ffffff;
-  border: 1px solid #282e3e;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  border: 1px solid var(--badge-border);
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -599,9 +633,9 @@ a:hover, .action-link:hover, [role="link"]:hover {
 .badge-green,
 .badge-amber,
 .badge-red {
-  background: #191c26;
-  color: #ffffff;
-  border-color: #2e3549;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  border-color: var(--badge-border);
 }
 
 /* Card Panels */
@@ -611,14 +645,14 @@ a:hover, .action-link:hover, [role="link"]:hover {
   border-radius: var(--radius-sm);
   padding: 14px 16px;
   transition: border-color 0.12s;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .card:hover {
   border-color: var(--border-strong);
 }
 
-/* Custom Minimalist Dark Scrollbars */
+/* Custom Minimalist Scrollbars */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
@@ -627,9 +661,9 @@ a:hover, .action-link:hover, [role="link"]:hover {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(120, 120, 120, 0.25);
   border-radius: 2px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(120, 120, 120, 0.4);
 }

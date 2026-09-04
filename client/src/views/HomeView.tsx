@@ -83,12 +83,12 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <span className="badge">Local-First Privacy</span>
           <span className="badge">BYOK Encrypted</span>
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '8px', color: '#ffffff' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: '700', letterSpacing: '-0.02em', marginBottom: '8px', color: 'var(--text-primary)' }}>
           OmniWorkspace
         </h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', maxWidth: '750px', lineHeight: '1.5' }}>
           A model-agnostic workspace orchestrating{' '}
-          <strong style={{ color: '#ffffff' }}>MODEL + TOOL + AGENT + CONTEXT + DATA + WORKFLOW + VERIFICATION</strong>.
+          <strong style={{ color: 'var(--text-primary)' }}>MODEL + TOOL + AGENT + CONTEXT + DATA + WORKFLOW + VERIFICATION</strong>.
           Accomplish software engineering, research, and analysis tasks from one unified cockpit.
         </p>
       </div>
@@ -114,7 +114,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <ShieldCheck size={15} color="var(--link-color)" />
             <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>SECURITY STATUS</span>
           </div>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>Guarded (Level 0-4)</div>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>Guarded (Level 0-4)</div>
           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
             Path shields & injection defense active
           </div>
@@ -132,7 +132,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Zap size={15} color="var(--link-color)" />
             <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>REGISTERED TOOLS</span>
           </div>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>
             {healthInfo?.toolCount || 28} Active Tools
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
@@ -152,7 +152,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <Cpu size={15} color="var(--link-color)" />
             <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>MODEL ROUTING</span>
           </div>
-          <div style={{ fontSize: '16px', fontWeight: '700', color: '#ffffff' }}>
+          <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>
             Auto Capability Routing
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
@@ -162,7 +162,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
       </div>
 
       {/* Task Launcher Grid */}
-      <h2 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: '#ffffff' }}>
+      <h2 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '14px', color: 'var(--text-primary)' }}>
         Explore Specialized Workspaces
       </h2>
 
@@ -203,7 +203,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: '#ffffff',
+                      color: 'var(--text-primary)',
                     }}
                   >
                     <Icon size={16} />
@@ -212,7 +212,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     Enter workspace →
                   </span>
                 </div>
-                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px', color: '#ffffff' }}>{action.title}</h3>
+                <h3 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '4px', color: 'var(--text-primary)' }}>{action.title}</h3>
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.4' }}>{action.desc}</p>
               </div>
 

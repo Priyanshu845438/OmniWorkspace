@@ -136,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({
             padding: '2px 7px',
             height: '22px',
             fontSize: '10.5px',
-            color: '#ffffff',
+            color: 'var(--text-primary)',
           }}
         >
           <Lock size={10} color="var(--link-color)" />
