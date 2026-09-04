@@ -374,7 +374,13 @@ export const App: React.FC = () => {
               />
             )}
             {activePerspective === 'architecture' && (
-              <ArchitectureView onOpenFile={handleOpenFileInCode} />
+              <ArchitectureView
+                onOpenFile={handleOpenFileInCode}
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'general');
+                }}
+              />
             )}
             {activePerspective === 'research' && (
               <ResearchView

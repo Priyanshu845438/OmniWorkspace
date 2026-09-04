@@ -45,6 +45,11 @@ export class ProjectIndexer {
     this.pathShield = pathShield;
   }
 
+  public setWorkspaceRoot(newRoot: string) {
+    this.workspaceRoot = path.resolve(newRoot);
+    this.cachedGraph = null;
+  }
+
   public async indexProject(forceRefresh: boolean = false): Promise<ArchitectureGraph> {
     const now = Date.now();
     // Cache for 10 seconds unless forced

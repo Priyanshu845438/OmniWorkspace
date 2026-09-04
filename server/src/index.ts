@@ -324,6 +324,7 @@ app.post('/api/workspace/open', async (req, res) => {
     }
     currentWorkspaceRoot = resolved;
     pathShield.setWorkspaceRoot(resolved);
+    projectIndexer.setWorkspaceRoot(resolved);
     res.json({ success: true, workspaceRoot: currentWorkspaceRoot, name: path.basename(currentWorkspaceRoot) });
   } catch (err: any) {
     res.status(400).json({ error: err.message });
