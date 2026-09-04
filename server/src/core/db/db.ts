@@ -48,6 +48,16 @@ export class WorkspaceDatabase {
         error TEXT,
         timestamp TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS user_memories (
+        id TEXT PRIMARY KEY,
+        category TEXT NOT NULL,
+        content TEXT NOT NULL,
+        source TEXT NOT NULL DEFAULT 'auto_extracted',
+        confidence REAL NOT NULL DEFAULT 1.0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
     `);
 
     // Sample data tables for SQL and Data Analysis tasks
@@ -185,5 +195,49 @@ export class WorkspaceDatabase {
     ).run(id, conversationId, role, content, traceJson || null, now);
     this.db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?').run(now, conversationId);
     return id;
+  }
+
+  public updateConversationTitle(conversationId: string, title: string): boolean {
+    const now = new Date().toISOString();
+    this.db.prepare('UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?').run(title, now, conversationId);
+    return true;
+  }
+
+  public deleteConversation(conversationId: string): boolean {
+    this.db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(conversationId);
+    this.db.prepare('DELETE FROM conversations WHERE id = ?').run(conversationId);
+    return true;
+  }
+
+  // Memory & Learning Engine Methods
+  public addMemory(
+    category: string,
+    content: string,
+    source: string = 'user_explicit',
+    confidence: number = 1.0
+  ): string {
+    const id = `mem_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const now = new Date().toISOString();
+    this.db.prepare(
+      'INSERT INTO user_memories (id, category, content, source, confidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(id, category, content, source, confidence, now, now);
+    return id;
+  }
+
+  public listMemories(): any[] {
+    return this.db.prepare('SELECT * FROM user_memories ORDER BY updated_at DESC').all();
+  }
+
+  public deleteMemory(id: string): boolean {
+    this.db.prepare('DELETE FROM user_memories WHERE id = ?').run(id);
+    return true;
+  }
+
+  public searchMemories(query?: string): any[] {
+    if (!query || !query.trim()) {
+      return this.listMemories();
+    }
+    const param = `%${query.trim()}%`;
+    return this.db.prepare('SELECT * FROM user_memories WHERE content LIKE ? OR category LIKE ? ORDER BY confidence DESC').all(param, param);
   }
 }

@@ -349,12 +349,21 @@ export const App: React.FC = () => {
             {activePerspective === 'chat' && (
               <ChatView
                 messages={messages}
-                onSendMessage={(msg) => executeOrchestrator(msg)}
+                onSendMessage={(msg, agent) => executeOrchestrator(msg, agent)}
                 isStreaming={isStreaming}
                 activeModelName={activeModelName}
-                onApplyCode={() => {
+                onApplyCode={(_code) => {
                   setActivePerspective('code');
                 }}
+                onRunInTerminal={async (cmd) => {
+                  setIsBottomCollapsed(false);
+                  await fetch('/api/terminal/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd }),
+                  });
+                }}
+                onStopExecution={handleCancelExecution}
                 onClearChat={() =>
                   setMessages([
                     {

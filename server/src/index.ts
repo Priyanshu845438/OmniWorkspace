@@ -223,12 +223,57 @@ app.post('/api/orchestrate/cancel', (req, res) => {
 
 // Direct Chat & Dual-Model Arena execution endpoint
 app.post('/api/chat', async (req, res) => {
-  const { prompt, model, messages } = req.body;
+  const { prompt, model, messages, conversationId } = req.body;
   if (!prompt && (!messages || messages.length === 0)) {
     return res.status(400).json({ error: 'prompt or messages required' });
   }
 
-  const chatMessages = messages || [{ role: 'user', content: prompt }];
+  const chatMessages = messages ? [...messages] : [{ role: 'user', content: prompt }];
+
+  // 1. Long-Term Memory Injection
+  try {
+    const memories = workspaceDb.listMemories();
+    if (memories && memories.length > 0) {
+      const memoryContext = `[Learned User Preferences & Long-Term Invariants]\n` +
+        memories.slice(0, 15).map((m: any) => `- [${m.category.toUpperCase()}]: ${m.content}`).join('\n') +
+        `\nApply these preferences, formatting instructions, and learned architectural constraints consistently.`;
+      
+      const existingSystem = chatMessages.find((m: any) => m.role === 'system');
+      if (existingSystem) {
+        existingSystem.content += `\n\n${memoryContext}`;
+      } else {
+        chatMessages.unshift({ role: 'system', content: memoryContext });
+      }
+    }
+  } catch {
+    // Graceful memory retrieval
+  }
+
+  // 2. Auto-extract memories from user input
+  const lastUserMsg = [...chatMessages].reverse().find((m: any) => m.role === 'user');
+  const userText = lastUserMsg?.content || prompt || '';
+  const extractedMemories: any[] = [];
+  if (userText) {
+    const patterns = [
+      { regex: /(?:i prefer|my preference is|always use|please always|we should always)\s+([^.\n]+)/i, category: 'preference' },
+      { regex: /(?:never use|avoid using|do not use|don't use)\s+([^.\n]+)/i, category: 'instruction' },
+      { regex: /(?:remember that|note that|rule:\s*|in our project,?\s*)\s+([^.\n]+)/i, category: 'convention' },
+      { regex: /(?:our stack is|we use|our backend is|our database is)\s+([^.\n]+)/i, category: 'fact' },
+    ];
+    for (const p of patterns) {
+      const match = userText.match(p.regex);
+      if (match && match[1] && match[1].trim().length > 4) {
+        const fact = match[1].trim();
+        try {
+          const existing = workspaceDb.searchMemories(fact);
+          if (existing.length === 0) {
+            const id = workspaceDb.addMemory(p.category, fact, 'auto_extracted', 0.95);
+            extractedMemories.push({ id, category: p.category, content: fact });
+          }
+        } catch {}
+      }
+    }
+  }
 
   try {
     const allModels = modelRegistry.getAllModels();
@@ -262,10 +307,19 @@ app.post('/api/chat', async (req, res) => {
         }
       );
 
+      const finalContent = result.content || fullContent;
+      if (conversationId) {
+        try {
+          workspaceDb.addMessage(conversationId, 'user', userText);
+          workspaceDb.addMessage(conversationId, 'assistant', finalContent);
+        } catch {}
+      }
+
       res.json({
         model: selectedModel.id,
         provider: provider.name,
-        content: result.content || fullContent,
+        content: finalContent,
+        extractedMemories,
       });
     } catch (modelErr: any) {
       console.warn(`[/api/chat] Model ${selectedModel.id} failed (${modelErr.message}). Falling back to active configured model...`);
@@ -278,16 +332,154 @@ app.post('/api/chat', async (req, res) => {
           if (chunk.content) fallbackContent += chunk.content;
         }
       );
+
+      const finalContent = fallbackExecution.result.content || fallbackContent;
+      if (conversationId) {
+        try {
+          workspaceDb.addMessage(conversationId, 'user', userText);
+          workspaceDb.addMessage(conversationId, 'assistant', finalContent);
+        } catch {}
+      }
+
       res.json({
         model: fallbackExecution.usedModel.id,
         provider: fallbackExecution.usedProvider.name,
-        content: fallbackExecution.result.content || fallbackContent,
+        content: finalContent,
         notice: `Requested model was unavailable. Seamlessly served via ${fallbackExecution.usedModel.name}.`,
+        extractedMemories,
       });
     }
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Chat generation failed' });
   }
+});
+
+// Conversations Management Endpoints
+app.get('/api/conversations', (_req, res) => {
+  try {
+    const list = workspaceDb.listConversations();
+    const enriched = (list as any[]).map((c: any) => {
+      const msgs: any[] = workspaceDb.getMessages(c.id);
+      const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+      return {
+        ...c,
+        messageCount: msgs.length,
+        lastMessage: lastMsg ? String(lastMsg.content || '').slice(0, 100) : '',
+      };
+    });
+    res.json({ conversations: enriched });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/conversations', (req, res) => {
+  try {
+    const title = req.body.title || 'New Conversation';
+    const id = workspaceDb.createConversation(title);
+    res.json({ id, title, created_at: new Date().toISOString() });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/conversations/:id/messages', (req, res) => {
+  try {
+    const msgs = workspaceDb.getMessages(req.params.id);
+    res.json({ messages: msgs });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/conversations/:id/messages', (req, res) => {
+  try {
+    const { role = 'user', content = '', traceJson } = req.body;
+    const id = workspaceDb.addMessage(req.params.id, role, content, traceJson);
+    res.json({ id, conversation_id: req.params.id, role, content });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/conversations/:id', (req, res) => {
+  try {
+    const { title } = req.body;
+    if (!title) return res.status(400).json({ error: 'Title required' });
+    workspaceDb.updateConversationTitle(req.params.id, title);
+    res.json({ success: true, id: req.params.id, title });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/conversations/:id', (req, res) => {
+  try {
+    workspaceDb.deleteConversation(req.params.id);
+    res.json({ success: true, id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Long-Term Memory & Learning Endpoints
+app.get('/api/memories', (req, res) => {
+  try {
+    const query = req.query.q as string | undefined;
+    const memories = workspaceDb.searchMemories(query);
+    res.json({ memories });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/memories', (req, res) => {
+  try {
+    const { category = 'preference', content, source = 'user_explicit', confidence = 1.0 } = req.body;
+    if (!content) return res.status(400).json({ error: 'Content required' });
+    const id = workspaceDb.addMemory(category, content, source, confidence);
+    res.json({ success: true, memory: { id, category, content, source, confidence } });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/memories/:id', (req, res) => {
+  try {
+    workspaceDb.deleteMemory(req.params.id);
+    res.json({ success: true, id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/memories/extract', async (req, res) => {
+  const { text = '' } = req.body;
+  if (!text) return res.json({ extracted: [] });
+
+  const extracted: any[] = [];
+  const patterns = [
+    { regex: /(?:i prefer|my preference is|always use|please always|we should always|remember to|always remember to)\s+([^.\n]+)/i, category: 'preference' },
+    { regex: /(?:never use|avoid using|do not use|don't use|never)\s+([^.\n]+)/i, category: 'instruction' },
+    { regex: /(?:remember that|note that|rule:\s*|keep in mind that|in our project,?\s*)\s+([^.\n]+)/i, category: 'convention' },
+    { regex: /(?:our stack is|we use|our backend is|our database is|the workspace uses)\s+([^.\n]+)/i, category: 'fact' },
+  ];
+
+  for (const p of patterns) {
+    const match = text.match(p.regex);
+    if (match && match[1] && match[1].trim().length > 4) {
+      const fact = match[1].trim();
+      try {
+        const existing = workspaceDb.searchMemories(fact);
+        if (existing.length === 0) {
+          const id = workspaceDb.addMemory(p.category, fact, 'auto_extracted', 0.95);
+          extracted.push({ id, category: p.category, content: fact });
+        }
+      } catch {}
+    }
+  }
+
+  res.json({ extracted });
 });
 
 // Deep Research & Live Web Search endpoint
