@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  omni-workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: omni-workspace
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+      - NODE_ENV=production
+      - OMNI_WORKSPACE_ROOT=/app/workspace
+    volumes:
+      - omni-data:/app/workspace/.omni-data
+
+volumes:
+  omni-data:

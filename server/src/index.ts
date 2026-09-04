@@ -446,6 +446,16 @@ app.get('/api/diagnostics/export', (req, res) => {
   res.json(report);
 });
 
+// 16. Serve Production Frontend if Built
+const clientDist = path.join(WORKSPACE_ROOT, 'dist-client');
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
+
 // Start listening
 app.listen(PORT, () => {
   console.log(`[OmniWorkspace Core Server] Running on http://localhost:${PORT}`);

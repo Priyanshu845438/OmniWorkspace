@@ -96,8 +96,7 @@ git commit -m "feat: initial commit of OmniWorkspace platform"
 
 ### 2. Connect to Your GitHub Repository
 ```bash
-git branch -M main
-git remote add origin https://github.com/<YOUR-USERNAME>/<YOUR-REPO-NAME>.git
+git remote add origin git@github.com:Priyanshu845438/OmniWorkspace.git
 git push -u origin main
 ```
 
@@ -111,36 +110,46 @@ git push origin v1.0.0
 
 ---
 
-## 🛠️ Quickstart (Web & Local Dev Server)
+## 🛠️ Quickstart (Web, Desktop & Docker)
 
 ### Prerequisites
-- Node.js v20+ or v22+
-- npm v10+
+- Node.js **>= 22.5.0** (for built-in `node:sqlite` persistence)
+- npm **>= 10.0.0**
 
-### Installation & Run
+### 1. Development Mode (Hot Reloading)
 ```bash
-# 1. Clone or navigate to the repository
-cd "AI Workspace"
-
-# 2. Install dependencies
+# Install dependencies
 npm install
 
-# 3. Start fullstack server & web client simultaneously
+# Start development server and client simultaneously
 npm run dev
 ```
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Open your browser to:
-- **Web Workspace**: [http://localhost:5173](http://localhost:5173)
-- **API Server**: [http://localhost:3001](http://localhost:3001)
-
-### Running Automated Test Suite
+### 2. Standalone Production Mode
 ```bash
-npm test
-```
-
-### Production Build Verification
-```bash
+# Build production client, server, and electron bundles
 npm run build
+
+# Start production server with integrated frontend serving
+npm start
+```
+Access the complete workspace on [http://localhost:3001](http://localhost:3001).
+
+### 3. Docker Container Deployment
+```bash
+# Launch containerized OmniWorkspace with persistent storage
+docker compose up -d
+```
+The container exposes the unified web workspace on [http://localhost:3001](http://localhost:3001).
+
+### 4. Running Automated Tests & Typecheck
+```bash
+# Run 35 automated unit, security, and integration tests
+npm test
+
+# Full strict typecheck across server, client, and electron
+npm run typecheck
 ```
 
 ---
