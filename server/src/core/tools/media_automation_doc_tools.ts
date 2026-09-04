@@ -161,17 +161,46 @@ export function registerMediaAutomationDocTools(
       }
 
       const content = fs.readFileSync(check.safePath, 'utf8');
-      const lines = content.split('\n');
+      const lines = content.split(/\r?\n/);
+      const words = content.trim().split(/\s+/).filter(Boolean);
 
-      // Extract headings if markdown
-      const headings = lines
-        .filter((l) => /^#{1,6}\s+/.test(l))
-        .map((h) => h.trim());
+      // Extract sections / headings and action items
+      const sections: Array<{ title: string; level: number; line: number }> = [];
+      const headings: string[] = [];
+      const actionItems: string[] = [];
+
+      lines.forEach((l, idx) => {
+        const hMatch = l.match(/^(#{1,6})\s+(.+)$/);
+        if (hMatch) {
+          headings.push(l.trim());
+          sections.push({
+            title: hMatch[2].trim(),
+            level: hMatch[1].length,
+            line: idx + 1,
+          });
+        }
+        if (/^\s*[-*]\s+\[[ xX]\]\s+/.test(l) || /\b(TODO|FIXME|NOTE|WARN|WARNING):/i.test(l)) {
+          actionItems.push(l.trim());
+        }
+      });
+
+      const codeBlocksCount = Math.floor(((content.match(/```[a-zA-Z0-9_-]*/g) || []).length) / 2);
+      const tablesCount = (content.match(/\|[\s-:]+\|/g) || []).length;
+      const readingTimeMinutes = Math.max(1, Math.ceil(words.length / 200));
 
       return {
         filePath: params.filePath,
         size: content.length,
+        wordCount: words.length,
+        lineCount: lines.length,
+        charCount: content.length,
+        readingTimeMinutes,
         headings,
+        sections,
+        actionItems: actionItems.slice(0, 30),
+        codeBlocksCount,
+        tablesCount,
+        content,
         preview: content.slice(0, 10000),
       };
     }

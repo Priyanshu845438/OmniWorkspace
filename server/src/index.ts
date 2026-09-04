@@ -724,6 +724,321 @@ app.post('/api/workspace/file', async (req, res) => {
   }
 });
 
+// Document Intelligence Endpoints
+app.get('/api/document/list', async (_req, res) => {
+  try {
+    const rootDir = WORKSPACE_ROOT;
+    const docFiles: Array<{
+      path: string;
+      name: string;
+      category: string;
+      size: number;
+      mtime: string;
+    }> = [];
+
+    const scanDir = (dir: string, depth = 0) => {
+      if (depth > 4) return;
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (
+          entry.name.startsWith('.') ||
+          entry.name === 'node_modules' ||
+          entry.name === 'dist' ||
+          entry.name.startsWith('dist-') ||
+          entry.name === 'coverage'
+        ) {
+          continue;
+        }
+        const fullPath = path.join(dir, entry.name);
+        const relPath = path.relative(rootDir, fullPath);
+        if (entry.isDirectory()) {
+          scanDir(fullPath, depth + 1);
+        } else if (entry.isFile()) {
+          const ext = path.extname(entry.name).toLowerCase();
+          if (['.md', '.txt', '.json', '.yaml', '.yml', '.rst'].includes(ext)) {
+            const stat = fs.statSync(fullPath);
+            let category = 'Other Workspace Docs';
+            const lower = relPath.toLowerCase();
+            if (lower.includes('architecture') || lower.includes('readme') || lower.includes('spec')) {
+              category = 'Architecture & Specs';
+            } else if (lower.includes('security') || lower.includes('privacy') || lower.includes('conduct')) {
+              category = 'Security & Governance';
+            } else if (
+              lower.includes('develop') ||
+              lower.includes('contribut') ||
+              lower.includes('guide') ||
+              lower.includes('deploy')
+            ) {
+              category = 'Guides & Operations';
+            } else if (
+              lower.includes('changelog') ||
+              lower.includes('maturity') ||
+              lower.includes('audit') ||
+              lower.includes('backlog') ||
+              lower.includes('report')
+            ) {
+              category = 'Audits & Releases';
+            }
+            docFiles.push({
+              path: relPath,
+              name: entry.name,
+              category,
+              size: stat.size,
+              mtime: stat.mtime.toISOString(),
+            });
+          }
+        }
+      }
+    };
+
+    scanDir(rootDir);
+    docFiles.sort((a, b) => a.path.localeCompare(b.path));
+    res.json({ documents: docFiles });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/document/read', async (req, res) => {
+  const filePath = (req.query.path as string) || 'README.md';
+  const tool = toolRegistry.getTool('read_document');
+  try {
+    const result = await tool?.handler({ filePath });
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+app.post('/api/document/analyze', async (req, res) => {
+  const { path: docPath = 'Document', content = '', mode = 'executive', question = '' } = req.body;
+
+  if (!content) {
+    return res.status(400).json({ error: 'Document content is required for analysis' });
+  }
+
+  // Calculate readability & linguistics metrics
+  const textWords = content.trim().split(/\s+/).filter(Boolean);
+  const totalWords = textWords.length;
+  const totalLines = content.split(/\r?\n/).length;
+  const sentences = content.split(/[.!?]+/).filter((s: string) => s.trim().length > 0);
+  const totalSentences = Math.max(1, sentences.length);
+
+  // Syllables approximation
+  let totalSyllables = 0;
+  const wordFreq: Record<string, number> = {};
+  textWords.forEach((w: string) => {
+    const clean = w.toLowerCase().replace(/[^a-z]/g, '');
+    if (clean) {
+      wordFreq[clean] = (wordFreq[clean] || 0) + 1;
+      const count = clean.match(/[aeiouy]{1,2}/g)?.length || 1;
+      totalSyllables += count;
+    }
+  });
+
+  const uniqueWords = Object.keys(wordFreq).length;
+  const lexicalDensityPercent = totalWords > 0 ? Math.round((uniqueWords / totalWords) * 100) : 0;
+  const avgSentenceLength = totalWords / totalSentences;
+  const avgSyllablesPerWord = totalWords > 0 ? totalSyllables / totalWords : 1;
+
+  // Flesch Reading Ease: 206.835 - 1.015 * (totalWords / totalSentences) - 84.6 * (totalSyllables / totalWords)
+  const rawScore = 206.835 - 1.015 * avgSentenceLength - 84.6 * avgSyllablesPerWord;
+  const fleschScore = Math.max(0, Math.min(100, Math.round(rawScore * 10) / 10));
+
+  let readingEase = 'Standard';
+  let gradeLevel = 'High School';
+  if (fleschScore >= 80) {
+    readingEase = 'Very Easy';
+    gradeLevel = '6th - 7th Grade';
+  } else if (fleschScore >= 60) {
+    readingEase = 'Standard';
+    gradeLevel = '8th - 9th Grade';
+  } else if (fleschScore >= 40) {
+    readingEase = 'Fairly Difficult';
+    gradeLevel = 'College Level';
+  } else {
+    readingEase = 'Academic / Highly Technical';
+    gradeLevel = 'Graduate Level';
+  }
+
+  const readingTimeMinutes = Math.max(1, Math.ceil(totalWords / 200));
+
+  // Extract key headings
+  const headings = content
+    .split(/\r?\n/)
+    .filter((l: string) => /^#{1,6}\s+/.test(l))
+    .map((h: string) => h.replace(/^#{1,6}\s+/, '').trim());
+
+  // Extract action items
+  const actionItems: string[] = [];
+  content.split(/\r?\n/).forEach((l: string) => {
+    if (/^\s*[-*]\s+\[[ xX]\]\s+/.test(l)) {
+      actionItems.push(l.trim().replace(/^\s*[-*]\s+\[[ xX]\]\s+/, ''));
+    } else if (/\b(TODO|FIXME|PREREQUISITE|NOTE|WARNING):/i.test(l)) {
+      actionItems.push(l.trim());
+    }
+  });
+
+  // Extract technical concepts
+  const keyConcepts: Array<{ term: string; definition: string }> = [];
+  const conceptMatches = content.match(/\*\*([^*]+)\*\*:\s*([^.\n]+)/g);
+  if (conceptMatches) {
+    conceptMatches.slice(0, 8).forEach((m: string) => {
+      const parts = m.split('**:');
+      if (parts.length >= 2) {
+        keyConcepts.push({
+          term: parts[0].replace(/\*\*/g, '').trim(),
+          definition: parts[1].trim(),
+        });
+      }
+    });
+  }
+
+  // Answer question if QA mode
+  let qaAnswer = '';
+  if (mode === 'qa' && question) {
+    const qWords = question.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+    const scoredSentences = sentences.map((s: string) => {
+      const lower = s.toLowerCase();
+      let score = 0;
+      qWords.forEach((qw: string) => {
+        if (lower.includes(qw)) score++;
+      });
+      return { text: s.trim(), score };
+    });
+    scoredSentences.sort((a: { score: number }, b: { score: number }) => b.score - a.score);
+    const topMatches = scoredSentences.filter((s: { score: number }) => s.score > 0).slice(0, 3);
+    if (topMatches.length > 0) {
+      qaAnswer = topMatches.map((m: { text: string }) => m.text).join('. ') + '.';
+    } else {
+      qaAnswer = `Based on the active document (${docPath}), no direct match was identified for "${question}". Review the key sections or full text for related context.`;
+    }
+  }
+
+  // AI model synthesis
+  let aiSummary = '';
+  try {
+    const route = modelRouter.selectRoute(['chat']);
+    if (route && route.model) {
+      const prompt = `Analyze this technical document: "${docPath}"
+Content Preview:
+${content.slice(0, 8000)}
+
+Requested Mode: ${mode}
+${question ? `Specific Question: ${question}` : ''}
+
+Provide an authoritative, rigorous analysis in structured JSON:
+{
+  "executiveSummary": "Concise 3-sentence synthesis of key technical concepts, intent, and architectural value.",
+  "keyPoints": ["Point 1", "Point 2", "Point 3"],
+  "architectureInvariants": ["Invariant 1", "Invariant 2"],
+  "securityRisks": ["Risk or compliance requirement 1"],
+  "qaAnswer": "Direct factual answer if question was asked"
+}`;
+
+      const chunks: string[] = [];
+      await modelRouter.executeWithFallback(
+        ['chat'],
+        [
+          { role: 'system', content: 'You are an elite software architect and technical documentation analyst.' },
+          { role: 'user', content: prompt },
+        ],
+        undefined,
+        (chunk) => {
+          if (chunk.content) chunks.push(chunk.content);
+        },
+        undefined,
+        AbortSignal.timeout(5000)
+      );
+
+      const parsed = chunks.join('').trim();
+      const match = parsed.match(/\{[\s\S]*\}/);
+      if (match) {
+        const json = JSON.parse(match[0]);
+        return res.json({
+          ...json,
+          actionItems: actionItems.slice(0, 15),
+          keyConcepts: keyConcepts.slice(0, 8),
+          headings,
+          readability: {
+            score: fleschScore,
+            readingEase,
+            gradeLevel,
+            readingTimeMinutes,
+            lexicalDensityPercent,
+            totalWords,
+            totalLines,
+            uniqueWords,
+          },
+        });
+      }
+    }
+  } catch {
+    // Graceful deterministic fallback
+  }
+
+  // Deterministic synthesis
+  const docTitle = headings[0] || path.basename(docPath);
+  const firstParagraph = content
+    .split(/\n\s*\n/)
+    .find((p: string) => p.trim().length > 60 && !p.startsWith('#')) || '';
+
+  const executiveSummary = firstParagraph
+    ? `${firstParagraph.slice(0, 240)}... Document outlines core specifications, operational workflows, and verified guidelines for "${docTitle}".`
+    : `Technical documentation for "${docTitle}" detailing architectural invariants, runtime configuration, and verified system constraints across ${totalLines} lines.`;
+
+  const keyPoints = headings.slice(0, 5).map((h: string) => `Comprehensive coverage of "${h}"`);
+  if (keyPoints.length === 0) {
+    keyPoints.push('Specifications and operational boundaries defined.');
+    keyPoints.push('Core interfaces and configuration requirements outlined.');
+  }
+
+  const architectureInvariants: string[] = [];
+  sentences.forEach((s: string) => {
+    const l = s.toLowerCase();
+    if (
+      (l.includes('must') || l.includes('architecture') || l.includes('invariants') || l.includes('protocol') || l.includes('sqlite') || l.includes('router')) &&
+      s.trim().length > 30 &&
+      s.trim().length < 180
+    ) {
+      architectureInvariants.push(s.trim());
+    }
+  });
+
+  const securityRisks: string[] = [];
+  sentences.forEach((s: string) => {
+    const l = s.toLowerCase();
+    if (
+      (l.includes('security') || l.includes('permission') || l.includes('secret') || l.includes('token') || l.includes('shield') || l.includes('destructive') || l.includes('auth')) &&
+      s.trim().length > 30 &&
+      s.trim().length < 180
+    ) {
+      securityRisks.push(s.trim());
+    }
+  });
+
+  res.json({
+    executiveSummary,
+    keyPoints,
+    architectureInvariants: architectureInvariants.slice(0, 5),
+    securityRisks: securityRisks.slice(0, 4),
+    actionItems: actionItems.slice(0, 15),
+    keyConcepts: keyConcepts.slice(0, 8),
+    qaAnswer: qaAnswer || undefined,
+    headings,
+    readability: {
+      score: fleschScore,
+      readingEase,
+      gradeLevel,
+      readingTimeMinutes,
+      lexicalDensityPercent,
+      totalWords,
+      totalLines,
+      uniqueWords,
+    },
+  });
+});
+
 // 6. Terminal Execution
 app.post('/api/terminal/run', async (req, res) => {
   const { command, timeoutMs } = req.body;
