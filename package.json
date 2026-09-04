@@ -5,6 +5,7 @@
   "private": true,
   "main": "dist-electron/main.js",
   "scripts": {
+    "prestart": "lsof -ti :3001 | xargs kill -9 2>/dev/null; exit 0",
     "start": "node dist-server/index.js",
     "prod": "npm run build && node dist-server/index.js",
     "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,magenta\" \"npm run dev:server\" \"npm run dev:client\"",

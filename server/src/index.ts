@@ -473,8 +473,51 @@ if (clientDist) {
   console.warn('[OmniWorkspace] Production client directory (dist-client) not found. Checked:', clientDistCandidates);
 }
 
-// Start listening
-app.listen(PORT, () => {
+// Start listening with graceful shutdown and EADDRINUSE auto-recovery
+const server = app.listen(PORT, () => {
   console.log(`[OmniWorkspace Core Server] Running on http://localhost:${PORT}`);
   console.log(`[OmniWorkspace] Root: ${WORKSPACE_ROOT}`);
+});
+
+server.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[OmniWorkspace] Port ${PORT} is already in use. Killing stale process and retrying...`);
+    import('child_process').then(({ execSync }) => {
+      try {
+        execSync(`lsof -ti :${PORT} | xargs kill -9 2>/dev/null`, { stdio: 'ignore' });
+      } catch { /* ignore */ }
+      setTimeout(() => {
+        server.close();
+        app.listen(PORT, () => {
+          console.log(`[OmniWorkspace Core Server] Running on http://localhost:${PORT} (recovered)`);
+        });
+      }, 1000);
+    });
+  } else {
+    console.error('[OmniWorkspace] Server error:', err);
+    process.exit(1);
+  }
+});
+
+// Graceful shutdown: always release port when process exits
+const gracefulShutdown = (signal: string) => {
+  console.log(`\n[OmniWorkspace] ${signal} received. Shutting down gracefully...`);
+  // Abort all active tasks
+  for (const [taskId, controller] of activeTasks) {
+    controller.abort();
+    activeTasks.delete(taskId);
+  }
+  server.close(() => {
+    console.log('[OmniWorkspace] Server closed. Port released.');
+    process.exit(0);
+  });
+  // Force exit after 3 seconds if graceful shutdown hangs
+  setTimeout(() => process.exit(0), 3000);
+};
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('uncaughtException', (err) => {
+  console.error('[OmniWorkspace] Uncaught exception:', err);
+  gracefulShutdown('uncaughtException');
 });
