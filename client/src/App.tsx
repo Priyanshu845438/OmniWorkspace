@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header.js';
 import { Sidebar } from './components/Sidebar.js';
 import { ExecutionTimeline, TraceStep } from './components/ExecutionTimeline.js';
@@ -43,6 +43,10 @@ export const App: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>('Universal Orchestrator');
   const [activeModelName, setActiveModelName] = useState<string>('Optimal Auto');
+
+  // Task & Cancellation Tracking
+  const currentTaskIdRef = useRef<string | null>(null);
+  const currentAbortControllerRef = useRef<AbortController | null>(null);
 
   // Load system health on mount
   useEffect(() => {
@@ -99,11 +103,17 @@ export const App: React.FC = () => {
     };
     setMessages((prev) => [...prev, assistantMsg]);
 
+    const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    currentTaskIdRef.current = taskId;
+    const controller = new AbortController();
+    currentAbortControllerRef.current = controller;
+
     try {
       const response = await fetch('/api/orchestrate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, agentType: manualAgent }),
+        body: JSON.stringify({ prompt, agentType: manualAgent, taskId }),
+        signal: controller.signal,
       });
 
       if (!response.body) throw new Error('Response body empty');
@@ -130,7 +140,9 @@ export const App: React.FC = () => {
             try {
               const parsed = JSON.parse(dataStr);
 
-              if (currentEvent === 'classification') {
+              if (currentEvent === 'init') {
+                if (parsed.taskId) currentTaskIdRef.current = parsed.taskId;
+              } else if (currentEvent === 'classification') {
                 setActiveAgent(parsed.suggestedAgent.toUpperCase() + ' AGENT');
                 // Automatically switch perspective if requested by orchestrator
                 if (parsed.primaryCategory && activePerspective === 'home') {
@@ -162,6 +174,14 @@ export const App: React.FC = () => {
                     )
                   );
                 }
+              } else if (currentEvent === 'cancelled') {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: m.content ? `${m.content}\n\n[Task stopped by user]` : 'Task execution stopped by user.' }
+                      : m
+                  )
+                );
               }
             } catch {
               // ignore parse errors
@@ -170,16 +190,57 @@ export const App: React.FC = () => {
         }
       }
     } catch (err: any) {
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMsgId
-            ? { ...m, content: `Task execution encountered an error: ${err.message}` }
-            : m
-        )
-      );
+      if (controller.signal.aborted || err?.name === 'AbortError') {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? { ...m, content: m.content ? `${m.content}\n\n[Task stopped by user]` : 'Task execution stopped by user.' }
+              : m
+          )
+        );
+      } else {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? { ...m, content: `Task execution encountered an error: ${err.message}` }
+              : m
+          )
+        );
+      }
     } finally {
       setIsStreaming(false);
+      currentAbortControllerRef.current = null;
     }
+  };
+
+  const handleCancelExecution = async () => {
+    if (currentAbortControllerRef.current) {
+      currentAbortControllerRef.current.abort();
+    }
+    const taskIdToCancel = currentTaskIdRef.current;
+    if (taskIdToCancel) {
+      try {
+        await fetch('/api/orchestrate/cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId: taskIdToCancel }),
+        });
+      } catch {
+        // network ignore
+      }
+    }
+    setTraces((prev) => [
+      ...prev,
+      {
+        id: `cancel_${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        type: 'verification',
+        title: 'Execution Terminated by User',
+        status: 'failed',
+        details: { reason: 'User invoked STOP execution control' },
+      },
+    ]);
+    setIsStreaming(false);
   };
 
   return (
@@ -287,6 +348,8 @@ export const App: React.FC = () => {
           traces={traces}
           activeAgent={activeAgent}
           activeModelName={activeModelName}
+          isStreaming={isStreaming}
+          onCancel={handleCancelExecution}
         />
       </div>
 

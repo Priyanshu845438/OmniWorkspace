@@ -122,9 +122,15 @@ app.delete('/api/vault/secret/:name', (req, res) => {
 });
 
 // 4. Universal Task Orchestration (SSE Stream)
+const activeTasks = new Map<string, AbortController>();
+
 app.post('/api/orchestrate/stream', async (req, res) => {
-  const { prompt, agentType, activeFilePath } = req.body;
+  const { prompt, agentType, activeFilePath, taskId: requestedTaskId } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+  const taskId = requestedTaskId || `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const abortController = new AbortController();
+  activeTasks.set(taskId, abortController);
 
   // Set SSE Headers
   res.setHeader('Content-Type', 'text/event-stream');
@@ -133,8 +139,19 @@ app.post('/api/orchestrate/stream', async (req, res) => {
   res.flushHeaders();
 
   const sendEvent = (type: string, data: unknown) => {
-    res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    if (!res.writableEnded) {
+      res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
+    }
   };
+
+  sendEvent('init', { taskId });
+
+  const onClose = () => {
+    if (!res.writableEnded && !abortController.signal.aborted) {
+      abortController.abort();
+    }
+  };
+  req.on('close', onClose);
 
   try {
     const classification = orchestrator.classifyTask(prompt);
@@ -151,19 +168,44 @@ app.post('/api/orchestrate/stream', async (req, res) => {
         if (chunk.content) {
           sendEvent('token', { delta: chunk.content });
         }
-      }
+      },
+      abortController.signal
     );
 
     sendEvent('done', {
+      taskId,
       response: result.response,
       classification: result.classification,
       verification: result.verification,
     });
     res.end();
   } catch (err: any) {
-    sendEvent('error', { error: err.message });
+    if (abortController.signal.aborted || err?.message?.includes('aborted') || err?.name === 'AbortError') {
+      sendEvent('cancelled', { taskId, reason: 'Execution cancelled by user' });
+    } else {
+      sendEvent('error', { taskId, error: err.message || 'Execution error' });
+    }
     res.end();
+  } finally {
+    req.off('close', onClose);
+    activeTasks.delete(taskId);
   }
+});
+
+app.post('/api/orchestrate/cancel', (req, res) => {
+  const { taskId } = req.body;
+  if (!taskId) {
+    return res.status(400).json({ error: 'taskId is required' });
+  }
+
+  const controller = activeTasks.get(taskId);
+  if (controller) {
+    controller.abort();
+    activeTasks.delete(taskId);
+    return res.json({ success: true, cancelled: taskId });
+  }
+
+  return res.json({ success: true, message: 'Task not running or already completed', taskId });
 });
 
 // 5. Workspaces & Files
