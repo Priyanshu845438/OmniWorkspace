@@ -447,7 +447,7 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
                   {/* Left Marker & Connecting Line */}
                   <div className="timeline-node-col">
                     <div
-                      className={`timeline-marker ${isRunning ? 'running' : ''} ${isCompleted ? 'completed' : ''} ${isFailed ? 'failed' : ''}`}
+                      className={`timeline-marker ${isRunning ? 'running' : ''} ${isCompleted ? 'completed' : ''} ${isFailed ? 'failed' : ''} ${isCancelled ? 'cancelled' : ''}`}
                     >
                       {isRunning ? (
                         <Clock size={10} color="#38bdf8" className="animate-spin" />
@@ -455,7 +455,7 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
                         <Check size={9} color="var(--success)" strokeWidth={3} />
                       ) : isWaiting ? (
                         <ShieldAlert size={10} color="var(--warning)" />
-                      ) : isFailed ? (
+                      ) : isFailed || isCancelled ? (
                         <AlertCircle size={10} color="var(--danger)" />
                       ) : (
                         <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'var(--text-muted)' }} />

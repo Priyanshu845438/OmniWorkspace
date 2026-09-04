@@ -50,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenCommandPalette,
   isRightPanelOpen = true,
   onToggleRightPanel,
-  healthInfo,
+  healthInfo: _healthInfo,
 }) => {
   const [prompt, setPrompt] = useState('');
 
