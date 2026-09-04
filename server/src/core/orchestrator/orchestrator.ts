@@ -180,10 +180,12 @@ export class TaskOrchestrator {
     manualAgent?: AgentType,
     onTraceStep?: (step: TraceStep) => void,
     onChunk?: (chunk: StreamChunk) => void,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
   ): Promise<{
     classification: TaskClassification;
     response: string;
+    reasoning?: string;
     trace: TraceStep[];
     verification?: unknown;
   }> {
@@ -312,7 +314,8 @@ export class TaskOrchestrator {
         if (onTraceStep) onTraceStep(subStep);
       },
       onChunk,
-      signal
+      signal,
+      conversationHistory
     );
 
     // Step 5: Verification Phase
@@ -337,6 +340,7 @@ export class TaskOrchestrator {
     return {
       classification,
       response: agentResult.response,
+      reasoning: agentResult.reasoning,
       trace,
       verification: verificationOutput,
     };

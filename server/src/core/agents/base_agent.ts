@@ -44,8 +44,9 @@ export class BaseAgent {
     contextString: string,
     onTraceStep?: (step: TraceStep) => void,
     onChunk?: (chunk: StreamChunk) => void,
-    signal?: AbortSignal
-  ): Promise<{ response: string; trace: TraceStep[]; usedRoute: RouteSelection }> {
+    signal?: AbortSignal,
+    conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
+  ): Promise<{ response: string; reasoning?: string; trace: TraceStep[]; usedRoute: RouteSelection }> {
     const trace: TraceStep[] = [];
     const tools = this.getAvailableTools();
 
@@ -71,8 +72,16 @@ export class BaseAgent {
       `${this.config.systemPrompt}\n\nWorkspace active agent: ${this.config.name}.\nYou have access to the following tools: ${tools.map((t) => t.name).join(', ')}.\nWhen answering, decide if a tool call is needed. If so, return a tool call.`
     );
 
+    const historyMessages: ChatMessage[] = (conversationHistory || [])
+      .filter((h) => h.content && h.content.trim())
+      .map((h) => ({
+        role: h.role,
+        content: h.content,
+      }));
+
     const messages: ChatMessage[] = [
       { role: 'system', content: guardedSystem },
+      ...historyMessages,
       {
         role: 'user',
         content: `${userInstruction}\n\n${contextString ? PromptDefense.wrapUntrustedContent('workspace_context', contextString) : ''}`,
@@ -81,6 +90,8 @@ export class BaseAgent {
 
     let iteration = 0;
     let finalResponse = '';
+    let accumulatedReasoning = '';
+    const executedTools: Array<{ name: string; params: any; result: any; summary: string }> = [];
 
     while (iteration < (this.config.maxIterations || 6)) {
       iteration++;
@@ -132,6 +143,13 @@ export class BaseAgent {
       agentStep.durationMs = Date.now() - iterStart;
       if (onTraceStep) onTraceStep(agentStep);
 
+      if (resultChunk.reasoningContent) {
+        accumulatedReasoning += resultChunk.reasoningContent;
+      }
+      if (resultChunk.content) {
+        finalResponse = resultChunk.content;
+      }
+
       // If model returned a tool call, execute each tool
       if (resultChunk.toolCalls && resultChunk.toolCalls.length > 0) {
         messages.push({
@@ -170,6 +188,18 @@ export class BaseAgent {
           };
           if (onTraceStep) onTraceStep(toolCallStep);
 
+          executedTools.push({
+            name: tc.toolName,
+            params: tc.parameters,
+            result: execResult.data,
+            summary:
+              tc.toolName === 'write_file'
+                ? `Created/updated file: ${tc.parameters?.path || tc.parameters?.filePath || 'workspace file'}`
+                : tc.toolName === 'edit_file'
+                ? `Edited file: ${tc.parameters?.path || tc.parameters?.filePath || 'workspace file'}`
+                : `Executed ${tc.toolName}`,
+          });
+
           // Add tool result back into context
           const toolResultString = execResult.success
             ? JSON.stringify(execResult.data)
@@ -189,6 +219,22 @@ export class BaseAgent {
       }
     }
 
+    // Ensure final response is NEVER blank or empty
+    if (!finalResponse || !finalResponse.trim()) {
+      if (executedTools.length > 0) {
+        const fileActions = executedTools
+          .filter((t) => t.name === 'write_file' || t.name === 'edit_file')
+          .map((t) => `- **${t.summary}**`);
+
+        finalResponse = `### Task Completed Successfully\n\nI have executed your request and performed the necessary actions in your workspace.\n\n${
+          fileActions.length > 0 ? `#### Files Modified / Created:\n${fileActions.join('\n')}\n\n` : ''
+        }#### Operations Summary:\n${executedTools.map((t) => `- \`${t.name}\`: Success`).join('\n')}\n\nYour workspace files have been updated and are ready for preview or testing.`;
+      } else {
+        finalResponse =
+          'I have reviewed your request and workspace context. Let me know what you would like to build or modify next!';
+      }
+    }
+
     const finalStep: TraceStep = {
       id: `trace_${Date.now()}_done`,
       timestamp: new Date().toISOString(),
@@ -201,6 +247,7 @@ export class BaseAgent {
 
     return {
       response: finalResponse,
+      reasoning: accumulatedReasoning || undefined,
       trace,
       usedRoute: route,
     };

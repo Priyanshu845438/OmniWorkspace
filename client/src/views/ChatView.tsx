@@ -17,6 +17,7 @@ interface ChatMessage {
   id: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
+  reasoning?: string;
   timestamp: string;
 }
 
@@ -194,6 +195,80 @@ export const ChatView: React.FC<ChatViewProps> = ({
     a.click();
   };
 
+  const renderInlineFormatting = (text: string) => {
+    const parts = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return (
+          <code
+            key={i}
+            style={{
+              background: 'rgba(56, 189, 248, 0.12)',
+              color: '#38bdf8',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return (
+          <strong key={i} style={{ color: '#f8fafc', fontWeight: 600 }}>
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return part;
+    });
+  };
+
+  const renderFormattedText = (text: string, keyPrefix: string) => {
+    const lines = text.split('\n');
+    return lines.map((line, lineIdx) => {
+      if (line.startsWith('# ')) {
+        return (
+          <h2 key={`${keyPrefix}_h1_${lineIdx}`} style={{ fontSize: '17px', fontWeight: 700, margin: '12px 0 6px 0', color: '#38bdf8' }}>
+            {line.slice(2)}
+          </h2>
+        );
+      }
+      if (line.startsWith('## ')) {
+        return (
+          <h3 key={`${keyPrefix}_h2_${lineIdx}`} style={{ fontSize: '14.5px', fontWeight: 600, margin: '10px 0 4px 0', color: '#f8fafc' }}>
+            {line.slice(3)}
+          </h3>
+        );
+      }
+      if (line.startsWith('### ')) {
+        return (
+          <h4 key={`${keyPrefix}_h3_${lineIdx}`} style={{ fontSize: '13px', fontWeight: 600, margin: '8px 0 4px 0', color: '#94a3b8' }}>
+            {line.slice(4)}
+          </h4>
+        );
+      }
+      if (line.startsWith('- ') || line.startsWith('* ')) {
+        return (
+          <div key={`${keyPrefix}_li_${lineIdx}`} style={{ display: 'flex', gap: '8px', margin: '3px 0', paddingLeft: '8px' }}>
+            <span style={{ color: 'var(--accent-primary)', fontSize: '13px', lineHeight: '1.4' }}>•</span>
+            <div style={{ flex: 1 }}>{renderInlineFormatting(line.slice(2))}</div>
+          </div>
+        );
+      }
+      if (!line.trim()) {
+        return <div key={`${keyPrefix}_empty_${lineIdx}`} style={{ height: '6px' }} />;
+      }
+      return (
+        <div key={`${keyPrefix}_p_${lineIdx}`} style={{ margin: '2px 0' }}>
+          {renderInlineFormatting(line)}
+        </div>
+      );
+    });
+  };
+
   // Helper to detect and render code blocks in messages
   const renderMessageContent = (content: string, msgId: string) => {
     const codeBlockRegex = /```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g;
@@ -204,9 +279,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
     while ((match = codeBlockRegex.exec(content)) !== null) {
       if (match.index > lastIndex) {
         parts.push(
-          <span key={`text_${lastIndex}`} style={{ whiteSpace: 'pre-wrap' }}>
-            {content.slice(lastIndex, match.index)}
-          </span>
+          <div key={`text_${lastIndex}`} style={{ whiteSpace: 'pre-wrap' }}>
+            {renderFormattedText(content.slice(lastIndex, match.index), `chunk_${lastIndex}`)}
+          </div>
         );
       }
 
@@ -281,9 +356,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     if (lastIndex < content.length) {
       parts.push(
-        <span key={`text_${lastIndex}`} style={{ whiteSpace: 'pre-wrap' }}>
-          {content.slice(lastIndex)}
-        </span>
+        <div key={`text_${lastIndex}`} style={{ whiteSpace: 'pre-wrap' }}>
+          {renderFormattedText(content.slice(lastIndex), `chunk_${lastIndex}`)}
+        </div>
       );
     }
 
@@ -499,7 +574,56 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       color: 'var(--text-primary)',
                     }}
                   >
-                    {renderMessageContent(msg.content, msg.id)}
+                    {!isUser && msg.reasoning && (
+                      <details
+                        style={{
+                          marginBottom: '10px',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'rgba(15, 23, 42, 0.7)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <summary
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '11px',
+                            color: 'var(--text-secondary)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            userSelect: 'none',
+                            fontWeight: 500,
+                          }}
+                        >
+                          <span style={{ color: '#38bdf8' }}>💭</span>
+                          <span>Thinking Process ({msg.reasoning.length} chars)</span>
+                        </summary>
+                        <div
+                          style={{
+                            padding: '8px 12px',
+                            fontSize: '11.5px',
+                            color: 'var(--text-muted)',
+                            borderTop: '1px solid rgba(56, 189, 248, 0.1)',
+                            fontFamily: 'var(--font-mono)',
+                            whiteSpace: 'pre-wrap',
+                            maxHeight: '220px',
+                            overflowY: 'auto',
+                            lineHeight: '1.5',
+                          }}
+                        >
+                          {msg.reasoning}
+                        </div>
+                      </details>
+                    )}
+                    {msg.content ? (
+                      renderMessageContent(msg.content, msg.id)
+                    ) : isStreaming && !isUser ? (
+                      <span style={{ color: 'var(--text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="spinner-dots">Thinking & generating...</span>
+                      </span>
+                    ) : null}
                   </div>
 
                   <div

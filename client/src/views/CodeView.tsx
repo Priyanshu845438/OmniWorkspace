@@ -16,6 +16,9 @@ import {
   ArrowDown,
   ArrowUp,
   Replace,
+  FolderOpen,
+  ChevronRight,
+  RotateCcw,
 } from 'lucide-react';
 
 interface FileItem {
@@ -34,16 +37,22 @@ interface OpenTab {
 interface CodeViewProps {
   onAskAi?: (prompt: string, activeFilePath?: string) => void;
   initialFile?: string;
+  isAiStreaming?: boolean;
 }
 
-export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
+export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile, isAiStreaming }) => {
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentPath] = useState('.');
+  const [currentPath, setCurrentPath] = useState('.');
+  const [workspaceName, setWorkspaceName] = useState('OmniWorkspace');
+  const [workspaceRoot, setWorkspaceRoot] = useState('');
+  const [showOpenFolderModal, setShowOpenFolderModal] = useState(false);
+  const [folderInputPath, setFolderInputPath] = useState('');
+  const [aiDevelopPrompt, setAiDevelopPrompt] = useState('');
+  const [aiDevelopStatus, setAiDevelopStatus] = useState<string | null>(null);
+
   const [fileFilter, setFileFilter] = useState('');
-  const [openTabs, setOpenTabs] = useState<OpenTab[]>([
-    { path: 'package.json', content: '', originalContent: '', isDirty: false },
-  ]);
-  const [activeTabPath, setActiveTabPath] = useState<string>('package.json');
+  const [openTabs, setOpenTabs] = useState<OpenTab[]>([]);
+  const [activeTabPath, setActiveTabPath] = useState<string>(initialFile || 'package.json');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [gitStatus, setGitStatus] = useState<string>('Checking...');
@@ -63,7 +72,12 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const activeTab = openTabs.find((t) => t.path === activeTabPath) || openTabs[0];
+  const activeTab = openTabs.find((t) => t.path === activeTabPath) || openTabs[0] || {
+    path: activeTabPath || 'package.json',
+    content: '',
+    originalContent: '',
+    isDirty: false,
+  };
 
   const loadDirectory = async (dir: string) => {
     try {
@@ -77,9 +91,22 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
     }
   };
 
+  const navigateDirectory = (targetDir: string) => {
+    setCurrentPath(targetDir);
+    loadDirectory(targetDir);
+  };
+
+  const navigateUp = () => {
+    if (currentPath === '.' || currentPath === '') return;
+    const parts = currentPath.split('/');
+    parts.pop();
+    const parent = parts.join('/') || '.';
+    navigateDirectory(parent);
+  };
+
   const loadFile = async (filePath: string) => {
     const existing = openTabs.find((t) => t.path === filePath);
-    if (existing) {
+    if (existing && existing.content && existing.content.length > 0) {
       setActiveTabPath(filePath);
       return;
     }
@@ -88,21 +115,87 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
       const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
       if (data.content !== undefined) {
-        setOpenTabs((prev) => [
-          ...prev,
-          {
-            path: filePath,
-            content: data.content,
-            originalContent: data.content,
-            isDirty: false,
-          },
-        ]);
+        setOpenTabs((prev) => {
+          const filtered = prev.filter((t) => t.path !== filePath);
+          return [
+            ...filtered,
+            {
+              path: filePath,
+              content: data.content,
+              originalContent: data.content,
+              isDirty: false,
+            },
+          ];
+        });
         setActiveTabPath(filePath);
       }
     } catch {
       // ignore
     }
   };
+
+  const handleOpenFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!folderInputPath.trim()) return;
+    try {
+      const res = await fetch('/api/workspace/open', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderPath: folderInputPath.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWorkspaceRoot(data.workspaceRoot);
+        setWorkspaceName(data.name || 'Workspace');
+        setCurrentPath('.');
+        loadDirectory('.');
+        setShowOpenFolderModal(false);
+        setFolderInputPath('');
+        refreshGit();
+      } else {
+        alert(`Failed to open folder: ${data.error}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const handleAiDevelop = () => {
+    if (!aiDevelopPrompt.trim() || !onAskAi) return;
+    const targetFile = activeTab?.path || 'workspace';
+    const promptToSend = `In workspace file '${targetFile}':\n${aiDevelopPrompt.trim()}\n\nDevelop and implement this request directly in the workspace using write_file/edit_file tools. Ensure clean syntax, full implementation without placeholders, and verify your changes.`;
+    setAiDevelopStatus('⚡ AI Developer is generating code & modifying workspace...');
+    onAskAi(promptToSend, targetFile);
+    setAiDevelopPrompt('');
+  };
+
+  // Re-sync file from disk when AI finishes streaming
+  const prevStreamingRef = useRef(isAiStreaming);
+  useEffect(() => {
+    if (prevStreamingRef.current && !isAiStreaming) {
+      loadDirectory(currentPath);
+      if (activeTabPath) {
+        fetch(`/api/workspace/file?path=${encodeURIComponent(activeTabPath)}`)
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.content !== undefined) {
+              setOpenTabs((prev) =>
+                prev.map((t) =>
+                  t.path === activeTabPath
+                    ? { ...t, content: data.content, originalContent: data.content, isDirty: false }
+                    : t
+                )
+              );
+              setAiDevelopStatus('✅ Code developed and synchronized with workspace!');
+              setTimeout(() => setAiDevelopStatus(null), 6000);
+            }
+          })
+          .catch(() => {});
+      }
+      refreshGit();
+    }
+    prevStreamingRef.current = isAiStreaming;
+  }, [isAiStreaming, activeTabPath, currentPath]);
 
   const closeTab = (e: React.MouseEvent, path: string) => {
     e.stopPropagation();
@@ -194,6 +287,15 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
   };
 
   useEffect(() => {
+    fetch('/api/workspace/current')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.workspaceRoot) {
+          setWorkspaceRoot(d.workspaceRoot);
+          setWorkspaceName(d.name || 'OmniWorkspace');
+        }
+      })
+      .catch(() => {});
     loadDirectory(currentPath);
     loadFile(initialFile || 'package.json');
     refreshGit();
@@ -389,6 +491,14 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
             <button
               className="icon-btn"
               style={{ padding: '2px', border: 'none' }}
+              onClick={() => setShowOpenFolderModal(true)}
+              title="Open Project Folder / Change Workspace"
+            >
+              <FolderOpen size={13} color="var(--accent-primary)" />
+            </button>
+            <button
+              className="icon-btn"
+              style={{ padding: '2px', border: 'none' }}
               onClick={() => setShowNewFileInput(!showNewFileInput)}
               title="New File"
             >
@@ -403,6 +513,36 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
               <RefreshCw size={13} />
             </button>
           </div>
+        </div>
+
+        {/* Current Folder Breadcrumb */}
+        <div
+          style={{
+            padding: '4px 8px',
+            background: 'var(--bg-tertiary)',
+            borderBottom: '1px solid var(--border-subtle)',
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            overflowX: 'auto',
+          }}
+        >
+          <Folder size={11} color="var(--accent-primary)" />
+          <span
+            style={{ fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}
+            onClick={() => navigateDirectory('.')}
+            title="Go to project root"
+          >
+            {workspaceName}
+          </span>
+          {currentPath !== '.' && (
+            <>
+              <ChevronRight size={10} color="var(--text-muted)" />
+              <span style={{ color: 'var(--text-primary)' }}>{currentPath}</span>
+            </>
+          )}
         </div>
 
         {/* Quick Search Filter */}
@@ -454,9 +594,9 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
 
         {/* File List Tree */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '6px 4px' }}>
-          {filteredFiles.map((item, idx) => (
+          {currentPath !== '.' && currentPath !== '' && (
             <div
-              key={idx}
+              onClick={navigateUp}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -464,26 +604,56 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
                 padding: '5px 8px',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '12px',
-                color: activeTabPath === item.name ? 'var(--text-accent)' : 'var(--text-primary)',
-                background: activeTabPath === item.name ? 'var(--bg-tertiary)' : 'transparent',
+                color: 'var(--text-secondary)',
                 cursor: 'pointer',
+                background: 'rgba(255, 255, 255, 0.03)',
+                marginBottom: '4px',
               }}
-              onClick={() => {
-                if (item.isFile) {
-                  loadFile(item.name);
-                }
-              }}
+              title="Go up to parent directory"
             >
-              {item.isDirectory ? (
-                <Folder size={13} color="var(--accent-primary)" />
-              ) : (
-                <File size={13} color="var(--text-muted)" />
-              )}
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {item.name}
-              </span>
+              <RotateCcw size={12} color="var(--accent-primary)" />
+              <span style={{ fontWeight: 600 }}>.. (Parent Directory)</span>
             </div>
-          ))}
+          )}
+
+          {filteredFiles.map((item, idx) => {
+            const itemFullPath = currentPath === '.' ? item.name : `${currentPath}/${item.name}`;
+            const isActive = activeTabPath === itemFullPath || activeTabPath === item.name;
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '5px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '12px',
+                  color: isActive ? 'var(--text-accent)' : 'var(--text-primary)',
+                  background: isActive ? 'var(--bg-tertiary)' : 'transparent',
+                  cursor: 'pointer',
+                }}
+                onClick={() => {
+                  if (item.isDirectory) {
+                    navigateDirectory(itemFullPath);
+                  } else {
+                    loadFile(itemFullPath);
+                  }
+                }}
+                title={item.isDirectory ? `Browse folder ${item.name}` : `Open file ${item.name}`}
+              >
+                {item.isDirectory ? (
+                  <Folder size={13} color="var(--accent-primary)" />
+                ) : (
+                  <File size={13} color="var(--text-muted)" />
+                )}
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.name}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Git Branch Badge */}
@@ -683,6 +853,118 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
                 </>
               )}
             </button>
+          </div>
+        </div>
+
+        {/* Antigravity AI Prompt-to-Code Bar */}
+        <div
+          style={{
+            padding: '8px 14px',
+            background: 'linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0%, rgba(99, 102, 241, 0.05) 100%)',
+            borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '24px',
+                height: '24px',
+                borderRadius: '6px',
+                background: 'linear-gradient(135deg, #0284c7, #6366f1)',
+                flexShrink: 0,
+              }}
+            >
+              <Sparkles size={13} color="#fff" />
+            </div>
+
+            <input
+              type="text"
+              placeholder={`Prompt AI to develop in '${activeTab?.path || 'workspace'}' (e.g. "Create auth middleware with JWT", "Build responsive portfolio page", "Fix errors")...`}
+              value={aiDevelopPrompt}
+              onChange={(e) => setAiDevelopPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAiDevelop();
+                }
+              }}
+              style={{
+                flex: 1,
+                height: '30px',
+                background: '#070b14',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 12px',
+                fontSize: '12px',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+
+            <button
+              className="btn-primary"
+              style={{
+                height: '30px',
+                padding: '0 12px',
+                fontSize: '11.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: 'linear-gradient(135deg, #0284c7 0%, #4f46e5 100%)',
+                border: 'none',
+              }}
+              onClick={handleAiDevelop}
+              disabled={isAiStreaming || !aiDevelopPrompt.trim()}
+              title="Execute with AI (Enter)"
+            >
+              <Sparkles size={12} />
+              <span>{isAiStreaming ? 'Developing...' : 'Develop'}</span>
+            </button>
+          </div>
+
+          {/* Quick Development Chips & Status */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', overflowX: 'auto' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Quick Actions:</span>
+              {[
+                { label: '✨ Add Feature', prompt: `Add a feature to '${activeTab?.path}': ` },
+                { label: '🐛 Fix Bugs', prompt: `Inspect and fix any bugs or type mismatches in '${activeTab?.path}'.` },
+                { label: '🧪 Write Tests', prompt: `Create automated unit tests for '${activeTab?.path}' using vitest.` },
+                { label: '⚡ Optimize', prompt: `Optimize performance and structure of '${activeTab?.path}'.` },
+              ].map((chip) => (
+                <button
+                  key={chip.label}
+                  onClick={() => {
+                    setAiDevelopPrompt(chip.prompt);
+                  }}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.04)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: '12px',
+                    padding: '2px 8px',
+                    fontSize: '10.5px',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+
+            {aiDevelopStatus && (
+              <span style={{ color: '#38bdf8', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#38bdf8' }} />
+                {aiDevelopStatus}
+              </span>
+            )}
           </div>
         </div>
 
@@ -1004,6 +1286,92 @@ export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
           </div>
         </div>
       </div>
+
+      {/* Open Folder Modal */}
+      {showOpenFolderModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+          onClick={() => setShowOpenFolderModal(false)}
+        >
+          <div
+            style={{
+              width: '460px',
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--border-accent)',
+              borderRadius: 'var(--radius-md)',
+              padding: '20px',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FolderOpen size={18} color="var(--accent-primary)" />
+                <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
+                  Open Project Folder
+                </h3>
+              </div>
+              <button className="icon-btn" onClick={() => setShowOpenFolderModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '14px', lineHeight: 1.5 }}>
+              Enter the absolute path of the local directory you want to open in OmniWorkspace Code Studio:
+            </p>
+
+            <form onSubmit={handleOpenFolder}>
+              <input
+                type="text"
+                autoFocus
+                placeholder={workspaceRoot || '/Users/acadify/Documents/my-project'}
+                value={folderInputPath}
+                onChange={(e) => setFolderInputPath(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: '34px',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-accent)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '0 10px',
+                  fontSize: '12.5px',
+                  color: 'var(--text-primary)',
+                  marginBottom: '16px',
+                  outline: 'none',
+                }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ height: '30px', padding: '0 12px', fontSize: '12px' }}
+                  onClick={() => setShowOpenFolderModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  style={{ height: '30px', padding: '0 14px', fontSize: '12px' }}
+                  disabled={!folderInputPath.trim()}
+                >
+                  Open Folder
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

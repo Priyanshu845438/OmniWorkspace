@@ -30,16 +30,31 @@ export const App: React.FC = () => {
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [selectedFileForCode, setSelectedFileForCode] = useState<string | null>(null);
 
-  // Chat & Execution States
-  const [messages, setMessages] = useState<any[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content:
-        'Welcome to OmniWorkspace. I am your Universal AI Co-Pilot. I can help you write and debug code, conduct web research, run SQL queries, analyze datasets, execute workflows, and coordinate media models. What would you like to build today?',
-      timestamp: 'Ready',
-    },
-  ]);
+  // Chat & Execution States with LocalStorage Persistence
+  const [messages, setMessages] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('omni_chat_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content:
+          'Welcome to OmniWorkspace. I am your Universal AI Co-Pilot. I can help you write and debug code, conduct web research, run SQL queries, analyze datasets, execute workflows, and coordinate media models. What would you like to build today?',
+        timestamp: 'Ready',
+      },
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('omni_chat_history', JSON.stringify(messages));
+    } catch {}
+  }, [messages]);
   const [traces, setTraces] = useState<TraceStep[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>('Universal Orchestrator');
@@ -98,20 +113,30 @@ export const App: React.FC = () => {
       content: prompt,
       timestamp: new Date().toLocaleTimeString(),
     };
-    setMessages((prev) => [...prev, userMsg]);
-    setIsStreaming(true);
-    setIsRightPanelOpen(true);
-    setTraces([]);
-    setActiveAgent('');
 
     const assistantMsgId = `ai_${Date.now()}`;
     const assistantMsg = {
       id: assistantMsgId,
       role: 'assistant',
       content: '',
+      reasoning: '',
       timestamp: new Date().toLocaleTimeString(),
     };
-    setMessages((prev) => [...prev, assistantMsg]);
+
+    // Extract previous conversation turns for multi-turn memory
+    const conversationHistory = messages
+      .filter((m) => m.id !== 'welcome' && m.content && m.content.trim())
+      .slice(-12)
+      .map((m) => ({
+        role: m.role as 'user' | 'assistant',
+        content: m.content,
+      }));
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setIsStreaming(true);
+    setIsRightPanelOpen(true);
+    setTraces([]);
+    setActiveAgent('');
 
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     currentTaskIdRef.current = taskId;
@@ -122,7 +147,7 @@ export const App: React.FC = () => {
       const response = await fetch('/api/orchestrate/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, agentType: manualAgent, taskId, activeFilePath }),
+        body: JSON.stringify({ prompt, agentType: manualAgent, taskId, activeFilePath, conversationHistory }),
         signal: controller.signal,
       });
 
@@ -168,6 +193,12 @@ export const App: React.FC = () => {
                   }
                   return [...prev, parsed];
                 });
+              } else if (currentEvent === 'thought') {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId ? { ...m, reasoning: (m.reasoning || '') + parsed.delta } : m
+                  )
+                );
               } else if (currentEvent === 'token') {
                 setMessages((prev) =>
                   prev.map((m) =>
@@ -179,7 +210,7 @@ export const App: React.FC = () => {
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMsgId
-                        ? { ...m, content: parsed.response }
+                        ? { ...m, content: parsed.response, reasoning: parsed.reasoning || m.reasoning }
                         : m
                     )
                   );
@@ -336,8 +367,8 @@ export const App: React.FC = () => {
             {activePerspective === 'code' && (
               <CodeView
                 initialFile={selectedFileForCode || undefined}
+                isAiStreaming={isStreaming}
                 onAskAi={(prompt, filePath) => {
-                  setActivePerspective('chat');
                   executeOrchestrator(prompt, 'coding', filePath);
                 }}
               />

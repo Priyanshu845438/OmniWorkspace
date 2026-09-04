@@ -26,7 +26,8 @@ import { DiagnosticExporter } from './core/diagnostics/exporter.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const WORKSPACE_ROOT = process.env.OMNI_WORKSPACE_ROOT || path.resolve(process.cwd());
+let currentWorkspaceRoot = process.env.OMNI_WORKSPACE_ROOT || path.resolve(process.cwd());
+const WORKSPACE_ROOT = currentWorkspaceRoot;
 const DATA_DIR = path.join(WORKSPACE_ROOT, '.omni-data');
 
 app.use(cors());
@@ -127,7 +128,7 @@ app.delete('/api/vault/secret/:name', (req, res) => {
 const activeTasks = new Map<string, AbortController>();
 
 app.post('/api/orchestrate/stream', async (req, res) => {
-  const { prompt, agentType, activeFilePath, taskId: requestedTaskId } = req.body;
+  const { prompt, agentType, activeFilePath, taskId: requestedTaskId, conversationHistory } = req.body;
   if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
   const taskId = requestedTaskId || `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
@@ -162,22 +163,27 @@ app.post('/api/orchestrate/stream', async (req, res) => {
 
     const result = await orchestrator.orchestrate(
       prompt,
-      { workspacePath: WORKSPACE_ROOT, activeFilePath },
+      { workspacePath: currentWorkspaceRoot, activeFilePath },
       agentType,
       (traceStep) => {
         sendEvent('trace', traceStep);
       },
       (chunk) => {
+        if (chunk.reasoningContent) {
+          sendEvent('thought', { delta: chunk.reasoningContent });
+        }
         if (chunk.content) {
           sendEvent('token', { delta: chunk.content });
         }
       },
-      abortController.signal
+      abortController.signal,
+      conversationHistory
     );
 
     sendEvent('done', {
       taskId,
       response: result.response,
+      reasoning: result.reasoning,
       classification: result.classification,
       verification: result.verification,
     });
@@ -228,11 +234,11 @@ app.post('/api/chat', async (req, res) => {
     const allModels = modelRegistry.getAllModels();
     let selectedModel = model
       ? allModels.find(
-          (m) =>
-            m.id === model ||
-            m.name.toLowerCase() === model.toLowerCase() ||
-            m.id.toLowerCase().includes(model.toLowerCase())
-        )
+        (m) =>
+          m.id === model ||
+          m.name.toLowerCase() === model.toLowerCase() ||
+          m.id.toLowerCase().includes(model.toLowerCase())
+      )
       : null;
     let provider = selectedModel
       ? modelRegistry.getAllProviders().find((p) => p.type === selectedModel!.provider || p.id === selectedModel!.provider)
@@ -301,6 +307,29 @@ app.post('/api/research/search', async (req, res) => {
 });
 
 // 5. Workspaces & Files
+app.get('/api/workspace/current', (_req, res) => {
+  res.json({
+    workspaceRoot: currentWorkspaceRoot,
+    name: path.basename(currentWorkspaceRoot),
+  });
+});
+
+app.post('/api/workspace/open', async (req, res) => {
+  const { folderPath } = req.body;
+  if (!folderPath) return res.status(400).json({ error: 'folderPath is required' });
+  try {
+    const resolved = path.resolve(folderPath);
+    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+      return res.status(400).json({ error: `Directory not found or not a folder: ${resolved}` });
+    }
+    currentWorkspaceRoot = resolved;
+    pathShield.setWorkspaceRoot(resolved);
+    res.json({ success: true, workspaceRoot: currentWorkspaceRoot, name: path.basename(currentWorkspaceRoot) });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
 app.get('/api/workspace/files', async (req, res) => {
   const dirPath = (req.query.path as string) || '.';
   const tool = toolRegistry.getTool('list_directory');

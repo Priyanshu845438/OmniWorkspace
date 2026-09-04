@@ -169,6 +169,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let accumulatedContent = '';
+    let accumulatedReasoning = '';
     const toolCallsAccumulator: Map<number, { id: string; name: string; args: string }> = new Map();
     let buffer = '';
     let finishReason: string | undefined;
@@ -199,11 +200,12 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
           const delta = choice.delta;
           const reasoningDelta = delta?.reasoning_content || delta?.reasoning;
           if (reasoningDelta) {
-            accumulatedContent += reasoningDelta;
+            accumulatedReasoning += reasoningDelta;
             if (onChunk) {
-              onChunk({ content: reasoningDelta, reasoningContent: reasoningDelta, isComplete: false });
+              onChunk({ reasoningContent: reasoningDelta, isComplete: false });
             }
-          } else if (delta?.content) {
+          }
+          if (delta?.content) {
             accumulatedContent += delta.content;
             if (onChunk) {
               onChunk({ content: delta.content, isComplete: false });
@@ -243,6 +245,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
 
     const finalChunk: StreamChunk = {
       content: accumulatedContent,
+      reasoningContent: accumulatedReasoning || undefined,
       toolCalls: parsedToolCalls.length > 0 ? parsedToolCalls : undefined,
       isComplete: true,
       finishReason,
