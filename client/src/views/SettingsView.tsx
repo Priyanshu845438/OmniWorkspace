@@ -145,6 +145,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ theme, onToggleTheme
           </button>
         </div>
       </div>
+
+      {/* Diagnostics & Observability Export */}
+      <div
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          padding: '20px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '4px' }}>Safe Diagnostic Export</h2>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              Export system metrics, tool latencies, and provider logs. All secrets are cryptographically redacted.
+            </div>
+          </div>
+          <button
+            className="btn-primary"
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/diagnostics/export');
+                const data = await res.json();
+                const blob = new Blob([JSON.stringify(data.json, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `omni-diagnostics-${Date.now()}.json`;
+                a.click();
+              } catch {
+                // ignore
+              }
+            }}
+          >
+            <span>Download Report (.json)</span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
