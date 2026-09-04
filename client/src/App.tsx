@@ -20,7 +20,7 @@ import { SettingsView } from './views/SettingsView.js';
 export const App: React.FC = () => {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [activePerspective, setActivePerspective] = useState<string>('home');
-  const [isBottomCollapsed, setIsBottomCollapsed] = useState<boolean>(false);
+  const [isBottomCollapsed, setIsBottomCollapsed] = useState<boolean>(true);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState<boolean>(false);
   const [healthInfo, setHealthInfo] = useState<any>(null);
 
@@ -70,12 +70,17 @@ export const App: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  // Global keyboard shortcut: Cmd+K / Ctrl+K for Universal Command Palette
+  // Global keyboard shortcuts:
+  // Cmd+K / Ctrl+K for Universal Command Palette
+  // Cmd+` / Ctrl+` for Terminal Drawer Toggle
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setIsCommandPaletteOpen((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === '`' || e.key === '~')) {
+        e.preventDefault();
+        setIsBottomCollapsed((prev) => !prev);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
