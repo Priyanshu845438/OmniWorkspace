@@ -161,23 +161,37 @@ export function registerDataAndSqlTools(
   registry.registerTool(
     {
       name: 'execute_sql',
-      description: 'Executes a safe SQL query against the local SQLite database. Blocks destructive statements by default.',
+      description: 'Executes a safe SQL query against the local SQLite database. Distinguishes READ, WRITE, and DESTRUCTIVE queries and blocks destructive statements without explicit confirmation.',
       category: 'sql',
       permissionLevel: PermissionLevel.LEVEL_1_MODIFY,
       parameters: {
         type: 'object',
         properties: {
           query: { type: 'string', description: 'SQL query string to run.' },
+          isUserConfirmed: { type: 'boolean', description: 'Explicit user approval required for destructive operations (e.g. DROP, TRUNCATE, unconstrained DELETE).' },
         },
         required: ['query'],
       },
     },
-    async (params: { query: string }) => {
+    async (params: { query: string; isUserConfirmed?: boolean }) => {
       const trimmed = params.query.trim();
 
-      // Guard against DROP DATABASE or hazardous statements
+      // Guard against DROP DATABASE or dangerous statements
       if (/drop\s+database/i.test(trimmed)) {
         throw new Error('Dangerous SQL statement blocked: DROP DATABASE not permitted.');
+      }
+
+      // Detect destructive operations requiring explicit approval
+      const isDestructive =
+        /\bdrop\s+(table|view|index|trigger|database)\b/i.test(trimmed) ||
+        /\btruncate\s+table\b/i.test(trimmed) ||
+        /\balter\s+table\b.*\bdrop\b/i.test(trimmed) ||
+        (/\bdelete\s+from\b/i.test(trimmed) && !/\bwhere\b/i.test(trimmed));
+
+      if (isDestructive && !params.isUserConfirmed) {
+        throw new Error(
+          'DESTRUCTIVE OPERATION BLOCKED: This query permanently deletes or alters schema/tables without restrictions. Explicit confirmation (isUserConfirmed: true) is required to execute.'
+        );
       }
 
       const db = getDbInstance();
@@ -186,6 +200,7 @@ export function registerDataAndSqlTools(
       }
 
       const isSelect = /^select\b/i.test(trimmed) || /^explain\b/i.test(trimmed) || /^pragma\b/i.test(trimmed);
+      const operationType = isSelect ? 'READ' : isDestructive ? 'DESTRUCTIVE' : 'WRITE';
 
       try {
         if (isSelect) {
@@ -193,6 +208,7 @@ export function registerDataAndSqlTools(
           const rows = stmt.all();
           return {
             query: params.query,
+            operationType,
             rowCount: rows.length,
             rows: rows.slice(0, 100), // Cap at 100 rows preview
           };
@@ -201,6 +217,7 @@ export function registerDataAndSqlTools(
           const info = stmt.run();
           return {
             query: params.query,
+            operationType,
             changes: info.changes,
             lastInsertRowid: info.lastInsertRowid,
             success: true,

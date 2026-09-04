@@ -292,10 +292,10 @@ app.get('/api/sql/schema', async (req, res) => {
 });
 
 app.post('/api/sql/query', async (req, res) => {
-  const { query } = req.body;
+  const { query, isUserConfirmed } = req.body;
   const tool = toolRegistry.getTool('execute_sql');
   try {
-    const result = await tool?.handler({ query });
+    const result = await tool?.handler({ query, isUserConfirmed });
     res.json(result);
   } catch (err: any) {
     res.status(400).json({ error: err.message });

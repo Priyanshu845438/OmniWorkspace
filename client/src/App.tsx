@@ -331,8 +331,22 @@ export const App: React.FC = () => {
               <ArchitectureView onOpenFile={handleOpenFileInCode} />
             )}
             {activePerspective === 'research' && <ResearchView />}
-            {activePerspective === 'data' && <DataView />}
-            {activePerspective === 'sql' && <SqlView />}
+            {activePerspective === 'data' && (
+              <DataView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'data');
+                }}
+              />
+            )}
+            {activePerspective === 'sql' && (
+              <SqlView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'sql');
+                }}
+              />
+            )}
             {activePerspective === 'automation' && <AutomationView />}
             {activePerspective === 'media' && <MediaView />}
             {activePerspective === 'documents' && <DocumentView />}

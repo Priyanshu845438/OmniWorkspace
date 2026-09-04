@@ -32,7 +32,11 @@ const DEFAULT_DATA: DataRow[] = [
   { department: 'Legal & Compliance', budget: 450000, headcount: 6, growth: 8 },
 ];
 
-export const DataView: React.FC = () => {
+interface DataViewProps {
+  onAskAi?: (prompt: string) => void;
+}
+
+export const DataView: React.FC<DataViewProps> = ({ onAskAi }) => {
   const [data, setData] = useState<DataRow[]>(DEFAULT_DATA);
   const [chartType, setChartType] = useState<'bar' | 'line' | 'pie'>('bar');
   const [sortField, setSortField] = useState<keyof DataRow>('budget');
@@ -184,6 +188,23 @@ export const DataView: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
+          {onAskAi && (
+            <button
+              className="btn-primary"
+              style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={() => {
+                const bStats = computeStats('budget');
+                const gStats = computeStats('growth');
+                const hStats = computeStats('headcount');
+                const prompt = `Perform deep statistical analysis and anomaly detection on this active dataset:\n- Total Rows: ${filteredData.length}\n- Budget (USD): Mean $${Math.round(bStats.mean).toLocaleString()}, Median $${Math.round(bStats.median).toLocaleString()}, Min $${bStats.min.toLocaleString()}, Max $${bStats.max.toLocaleString()}, StdDev $${Math.round(bStats.stdDev).toLocaleString()}\n- Growth Rate (%): Mean ${gStats.mean.toFixed(1)}%, Median ${gStats.median.toFixed(1)}%, Range [${gStats.min}%, ${gStats.max}%]\n- Headcount: Mean ${hStats.mean.toFixed(1)}, Median ${hStats.median}, Range [${hStats.min}, ${hStats.max}]\n- Top Departments:\n${filteredData.slice(0, 5).map((d) => `  * ${d.department}: Budget $${d.budget.toLocaleString()}, Headcount ${d.headcount}, Growth ${d.growth}%`).join('\n')}\n\nAnalyze correlations, evaluate budget efficiency, highlight outliers, and recommend concrete optimizations.`;
+                onAskAi(prompt);
+              }}
+              title="Analyze dataset with AI Data Agent"
+            >
+              <Sparkles size={14} />
+              <span>AI Analysis</span>
+            </button>
+          )}
           <button className="btn-secondary" style={{ fontSize: '12px' }} onClick={handleExportSvg}>
             <Download size={14} color="var(--accent-primary)" />
             <span>Export SVG Chart</span>

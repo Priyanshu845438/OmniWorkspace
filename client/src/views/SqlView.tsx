@@ -12,7 +12,11 @@ import {
   BookOpen,
 } from 'lucide-react';
 
-export const SqlView: React.FC = () => {
+interface SqlViewProps {
+  onAskAi?: (prompt: string) => void;
+}
+
+export const SqlView: React.FC<SqlViewProps> = ({ onAskAi }) => {
   const [query, setQuery] = useState(
     'SELECT e.name, d.name AS department, e.salary, s.product, s.amount\nFROM employees e\nJOIN departments d ON e.department_id = d.id\nJOIN sales s ON s.employee_id = e.id\nORDER BY s.amount DESC;'
   );
@@ -21,6 +25,7 @@ export const SqlView: React.FC = () => {
   const [plan, setPlan] = useState<any[] | null>(null);
   const [isRunning, setIsRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDestructiveBlocked, setIsDestructiveBlocked] = useState(false);
   const [queryHistory, setQueryHistory] = useState<string[]>([]);
   const [tableFilter, setTableFilter] = useState('');
 
@@ -49,19 +54,25 @@ export const SqlView: React.FC = () => {
     }
   };
 
-  const handleExecute = async (queryToRun?: string) => {
+  const handleExecute = async (queryToRun?: string, isConfirmed?: boolean) => {
     const q = queryToRun || query;
     setIsRunning(true);
     setError(null);
     setPlan(null);
+    setIsDestructiveBlocked(false);
     try {
       const res = await fetch('/api/sql/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q }),
+        body: JSON.stringify({ query: q, isUserConfirmed: isConfirmed }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        if (data.error && data.error.includes('DESTRUCTIVE OPERATION BLOCKED')) {
+          setIsDestructiveBlocked(true);
+        }
+        throw new Error(data.error);
+      }
       setResults(data.rows || []);
 
       // Add to history
@@ -249,6 +260,21 @@ export const SqlView: React.FC = () => {
           </div>
 
           <div style={{ display: 'flex', gap: '6px' }}>
+            {onAskAi && (
+              <button
+                className="btn-secondary"
+                style={{ height: '28px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                onClick={() =>
+                  onAskAi(
+                    `Analyze and optimize this SQL query against the database schema:\n\n${query}`
+                  )
+                }
+                title="Ask SQL AI Agent"
+              >
+                <Sparkles size={12} color="var(--accent-primary)" />
+                <span>AI Optimize</span>
+              </button>
+            )}
             {results && results.length > 0 && (
               <button className="btn-secondary" style={{ height: '28px', fontSize: '11.5px' }} onClick={exportResultsCsv}>
                 <Download size={12} />
@@ -265,6 +291,45 @@ export const SqlView: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Destructive Warning and Confirmation Banner */}
+        {isDestructiveBlocked && (
+          <div
+            style={{
+              padding: '10px 14px',
+              background: 'rgba(239, 68, 68, 0.15)',
+              borderBottom: '1px solid #ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '12px',
+              color: '#fca5a5',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={15} color="#ef4444" />
+              <span>
+                <strong>DESTRUCTIVE OPERATION DETECTED:</strong> This query will permanently alter or drop database records/schema.
+              </span>
+            </div>
+            <button
+              style={{
+                height: '26px',
+                padding: '0 10px',
+                fontSize: '11.5px',
+                background: '#ef4444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+              onClick={() => handleExecute(query, true)}
+            >
+              Confirm & Execute Destructive SQL
+            </button>
+          </div>
+        )}
 
         {/* SQL Query Textarea */}
         <div style={{ height: '130px', borderBottom: '1px solid var(--border-subtle)' }}>
