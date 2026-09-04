@@ -14,6 +14,7 @@ import { SqlView } from './views/SqlView.js';
 import { AutomationView } from './views/AutomationView.js';
 import { MediaView } from './views/MediaView.js';
 import { DocumentView } from './views/DocumentView.js';
+import { ArchitectureView } from './views/ArchitectureView.js';
 import { ModelManagerView } from './views/ModelManagerView.js';
 import { SettingsView } from './views/SettingsView.js';
 
@@ -203,6 +204,7 @@ export const App: React.FC = () => {
               />
             )}
             {activePerspective === 'code' && <CodeView />}
+            {activePerspective === 'architecture' && <ArchitectureView />}
             {activePerspective === 'research' && <ResearchView />}
             {activePerspective === 'data' && <DataView />}
             {activePerspective === 'sql' && <SqlView />}

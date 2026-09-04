@@ -19,6 +19,10 @@ import { ContextEngine } from './core/context/context_engine.js';
 import { VerificationEngine } from './core/verification/verifier.js';
 import { TaskOrchestrator } from './core/orchestrator/orchestrator.js';
 import { WorkspaceDatabase } from './core/db/db.js';
+import { ProjectIndexer } from './core/intelligence/project_indexer.js';
+import { PluginManager } from './core/plugins/plugin_manager.js';
+import { MultiModelPipeline } from './core/orchestrator/multi_model.js';
+import { DiagnosticExporter } from './core/diagnostics/exporter.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -41,6 +45,13 @@ const contextEngine = new ContextEngine(pathShield);
 const verifier = new VerificationEngine(WORKSPACE_ROOT);
 const workspaceDb = new WorkspaceDatabase(DATA_DIR);
 const orchestrator = new TaskOrchestrator(toolRegistry, modelRouter, contextEngine, verifier);
+const projectIndexer = new ProjectIndexer(WORKSPACE_ROOT, pathShield);
+const pluginManager = new PluginManager(WORKSPACE_ROOT, toolRegistry, modelRegistry);
+const multiModelPipeline = new MultiModelPipeline(modelRouter, toolRegistry, verifier);
+const diagnosticExporter = new DiagnosticExporter(credentialVault, toolRegistry, modelRegistry);
+
+// Load third-party plugins on boot
+pluginManager.loadPlugins().catch(console.error);
 
 // Register All Tools
 registerFileAndCodeTools(toolRegistry, pathShield);
@@ -273,9 +284,44 @@ app.get('/api/workflows/:id/history', (req, res) => {
   res.json({ history: workflowEngine.getHistory(req.params.id) });
 });
 
-// 10. Audit Logs
+// 10. Audit Logs & Observability
 app.get('/api/audit', (req, res) => {
   res.json({ auditLogs: toolRegistry.getAuditLogs() });
+});
+
+// 11. Project Architecture & Graph Explorer
+app.get('/api/workspace/architecture', async (req, res) => {
+  try {
+    const force = req.query.refresh === 'true';
+    const graph = await projectIndexer.indexProject(force);
+    res.json(graph);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 12. Extensible Plugin Registry
+app.get('/api/plugins', (req, res) => {
+  res.json({ plugins: pluginManager.getLoadedPlugins() });
+});
+
+// 13. Multi-Model Collaborative Pipeline
+app.post('/api/orchestrate/collaborative', async (req, res) => {
+  const { prompt, context } = req.body;
+  if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+  try {
+    const result = await multiModelPipeline.executeCollaborativePipeline(prompt, context || '');
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 14. Safe Redacted Diagnostic Export
+app.get('/api/diagnostics/export', (req, res) => {
+  const report = diagnosticExporter.generateSafeDiagnosticReport();
+  res.json(report);
 });
 
 // Start listening

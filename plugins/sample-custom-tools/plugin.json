@@ -1,0 +1,31 @@
+{
+  "id": "sample-custom-tools",
+  "name": "Community Developer Utilities",
+  "version": "1.0.0",
+  "description": "Demonstrates the extensible plugin architecture for third-party tools.",
+  "author": "OmniWorkspace Community",
+  "tools": [
+    {
+      "name": "calculate_hash",
+      "description": "Calculates MD5 or SHA256 cryptographic hash of arbitrary string.",
+      "category": "code",
+      "permissionLevel": 0,
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "Input text to hash."
+          },
+          "algorithm": {
+            "type": "string",
+            "description": "md5 or sha256 (default: sha256)."
+          }
+        },
+        "required": [
+          "text"
+        ]
+      }
+    }
+  ]
+}
