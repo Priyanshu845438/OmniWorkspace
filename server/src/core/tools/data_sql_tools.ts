@@ -201,25 +201,31 @@ export function registerDataAndSqlTools(
 
       const isSelect = /^select\b/i.test(trimmed) || /^explain\b/i.test(trimmed) || /^pragma\b/i.test(trimmed);
       const operationType = isSelect ? 'READ' : isDestructive ? 'DESTRUCTIVE' : 'WRITE';
+      const t0 = performance.now();
 
       try {
         if (isSelect) {
           const stmt = db.prepare(trimmed);
           const rows = stmt.all();
+          const durationMs = Math.round((performance.now() - t0) * 100) / 100;
           return {
             query: params.query,
             operationType,
             rowCount: rows.length,
-            rows: rows.slice(0, 100), // Cap at 100 rows preview
+            columns: rows.length > 0 ? Object.keys(rows[0] as object) : [],
+            rows: rows.slice(0, 500),
+            durationMs,
           };
         } else {
           const stmt = db.prepare(trimmed);
           const info = stmt.run();
+          const durationMs = Math.round((performance.now() - t0) * 100) / 100;
           return {
             query: params.query,
             operationType,
             changes: info.changes,
             lastInsertRowid: info.lastInsertRowid,
+            durationMs,
             success: true,
           };
         }
@@ -247,13 +253,20 @@ export function registerDataAndSqlTools(
 
       const tables = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';`).all();
       const schema: Record<string, unknown[]> = {};
+      const rowCounts: Record<string, number> = {};
 
       for (const t of tables as any[]) {
         const columns = db.prepare(`PRAGMA table_info("${t.name}");`).all();
         schema[t.name] = columns;
+        try {
+          const countRow = db.prepare(`SELECT COUNT(*) as count FROM "${t.name}";`).get() as { count: number };
+          rowCounts[t.name] = countRow?.count ?? 0;
+        } catch {
+          rowCounts[t.name] = 0;
+        }
       }
 
-      return { tables: tables.map((t: any) => t.name), schema };
+      return { tables: tables.map((t: any) => t.name), schema, rowCounts };
     }
   );
 
@@ -276,9 +289,11 @@ export function registerDataAndSqlTools(
       const db = getDbInstance();
       if (!db) throw new Error('Database not initialized.');
 
+      const t0 = performance.now();
       try {
         const rows = db.prepare(`EXPLAIN QUERY PLAN ${params.query}`).all();
-        return { query: params.query, plan: rows };
+        const durationMs = Math.round((performance.now() - t0) * 100) / 100;
+        return { query: params.query, plan: rows, durationMs };
       } catch (err: any) {
         throw new Error(`EXPLAIN query failed: ${err.message}`);
       }

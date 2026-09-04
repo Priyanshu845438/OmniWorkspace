@@ -39,22 +39,6 @@ export class WorkspaceDatabase {
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       );
 
-      CREATE TABLE IF NOT EXISTS workflows (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        definition_json TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS workflow_runs (
-        id TEXT PRIMARY KEY,
-        workflow_id TEXT NOT NULL,
-        status TEXT NOT NULL,
-        duration_ms INTEGER NOT NULL,
-        logs_json TEXT NOT NULL,
-        run_at TEXT NOT NULL
-      );
-
       CREATE TABLE IF NOT EXISTS audit_events (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tool_name TEXT NOT NULL,
@@ -71,7 +55,8 @@ export class WorkspaceDatabase {
       CREATE TABLE IF NOT EXISTS departments (
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
-        budget REAL NOT NULL
+        budget REAL NOT NULL,
+        location TEXT NOT NULL DEFAULT 'San Francisco, CA'
       );
 
       CREATE TABLE IF NOT EXISTS employees (
@@ -82,6 +67,22 @@ export class WorkspaceDatabase {
         salary REAL NOT NULL,
         hire_date TEXT NOT NULL,
         FOREIGN KEY (department_id) REFERENCES departments(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS customers (
+        id INTEGER PRIMARY KEY,
+        company_name TEXT NOT NULL,
+        tier TEXT NOT NULL,
+        country TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS products (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        unit_price REAL NOT NULL,
+        stock_quantity INTEGER NOT NULL
       );
 
       CREATE TABLE IF NOT EXISTS sales (
@@ -95,14 +96,14 @@ export class WorkspaceDatabase {
     `);
 
     // Populate starter data if empty
-    const check = this.db.prepare('SELECT COUNT(*) as count FROM departments').get() as { count: number };
-    if (check.count === 0) {
+    const checkDept = this.db.prepare('SELECT COUNT(*) as count FROM departments').get() as { count: number };
+    if (checkDept.count === 0) {
       this.db.exec(`
-        INSERT INTO departments (id, name, budget) VALUES
-          (1, 'Engineering', 2500000),
-          (2, 'Research & AI', 1800000),
-          (3, 'Product Design', 900000),
-          (4, 'Marketing & Growth', 750000);
+        INSERT INTO departments (id, name, budget, location) VALUES
+          (1, 'Engineering', 2500000, 'San Francisco, CA'),
+          (2, 'Research & AI', 1800000, 'Seattle, WA'),
+          (3, 'Product Design', 900000, 'New York, NY'),
+          (4, 'Marketing & Growth', 750000, 'Austin, TX');
 
         INSERT INTO employees (id, name, department_id, role, salary, hire_date) VALUES
           (1, 'Sarah Chen', 2, 'Principal AI Scientist', 220000, '2022-03-15'),
@@ -110,7 +111,36 @@ export class WorkspaceDatabase {
           (3, 'Elena Rostova', 1, 'DevOps & Security Lead', 185000, '2023-01-10'),
           (4, 'Marcus Brody', 3, 'Lead UX Designer', 160000, '2022-11-20'),
           (5, 'Priya Sharma', 4, 'Growth Lead', 150000, '2023-05-18');
+      `);
+    }
 
+    const checkCust = this.db.prepare('SELECT COUNT(*) as count FROM customers').get() as { count: number };
+    if (checkCust.count === 0) {
+      this.db.exec(`
+        INSERT INTO customers (id, company_name, tier, country, created_at) VALUES
+          (1, 'Acme AI Systems', 'Enterprise', 'USA', '2023-04-10'),
+          (2, 'BioTech Research Labs', 'Enterprise', 'Germany', '2023-06-15'),
+          (3, 'Quantum Dynamics', 'Growth', 'UK', '2023-09-01'),
+          (4, 'Nordic Cloud Oy', 'Startup', 'Finland', '2024-01-20'),
+          (5, 'Apex Financial Tech', 'Enterprise', 'Japan', '2024-02-12');
+      `);
+    }
+
+    const checkProd = this.db.prepare('SELECT COUNT(*) as count FROM products').get() as { count: number };
+    if (checkProd.count === 0) {
+      this.db.exec(`
+        INSERT INTO products (id, name, category, unit_price, stock_quantity) VALUES
+          (1, 'Enterprise AI Inference Pack', 'Inference', 45000, 100),
+          (2, 'Code Intelligence Suite', 'Developer Tools', 28000, 250),
+          (3, 'OmniWorkspace Pro Annual', 'SaaS License', 12000, 500),
+          (4, 'Custom LLM Fine-Tuning Contract', 'Professional Services', 95000, 20),
+          (5, 'Universal Developer Seat License', 'SaaS License', 34000, 300);
+      `);
+    }
+
+    const checkSales = this.db.prepare('SELECT COUNT(*) as count FROM sales').get() as { count: number };
+    if (checkSales.count === 0) {
+      this.db.exec(`
         INSERT INTO sales (id, employee_id, product, amount, sale_date) VALUES
           (1, 1, 'Enterprise AI Inference Pack', 45000, '2024-01-15'),
           (2, 2, 'Code Intelligence Suite', 28000, '2024-01-20'),
