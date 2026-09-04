@@ -228,6 +228,15 @@ export class ModelRouter {
 
         const isRecoverable =
           fullErr.includes('429') ||
+          fullErr.includes('404') ||
+          fullErr.includes('410') ||
+          fullErr.includes('model_not_found') ||
+          fullErr.includes('not found') ||
+          fullErr.includes('not available') ||
+          fullErr.includes('authorization_denied') ||
+          fullErr.includes('not found for account') ||
+          fullErr.includes('account permission') ||
+          fullErr.includes('permission denied') ||
           fullErr.includes('500') ||
           fullErr.includes('502') ||
           fullErr.includes('503') ||

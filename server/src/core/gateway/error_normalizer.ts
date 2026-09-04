@@ -48,6 +48,16 @@ export function normalizeProviderError(
     };
   }
 
+  if (sanitized.includes('not found for account') || sanitized.includes('public api endpoints')) {
+    return {
+      code: 'AUTHORIZATION_DENIED',
+      statusCode: 403,
+      message: `Account permission restriction on ${providerName}: Public API Endpoints or model permission not enabled for this account.`,
+      isRecoverable: true,
+      suggestedAction: 'Switch to verified active models like Nemotron 3 Nano Omni or verify account on build.nvidia.com.',
+    };
+  }
+
   if (status === 403) {
     return {
       code: 'AUTHORIZATION_DENIED',

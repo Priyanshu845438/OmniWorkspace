@@ -44,8 +44,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   // Arena Comparison State
   const [isArenaMode, setIsArenaMode] = useState(false);
-  const [modelA, setModelA] = useState('nvidia/llama-3.1-nemotron-70b-instruct');
-  const [modelB, setModelB] = useState('deepseek/deepseek-r1');
+  const [modelA, setModelA] = useState('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning');
+  const [modelB, setModelB] = useState('nvidia/nemotron-3-super-120b-a12b');
   const [arenaResponseA, setArenaResponseA] = useState('');
   const [arenaResponseB, setArenaResponseB] = useState('');
   const [arenaTimingA, setArenaTimingA] = useState<number | null>(null);
@@ -59,15 +59,37 @@ export const ChatView: React.FC<ChatViewProps> = ({
     { label: 'Analyze Data Stats', prompt: 'Inspect the departmental dataset and calculate budget percentiles.' },
   ];
 
-  const availableModels = [
-    { id: 'nvidia/llama-3.1-nemotron-70b-instruct', name: 'NVIDIA Nemotron 70B' },
-    { id: 'deepseek/deepseek-r1', name: 'DeepSeek-R1 (Reasoning)' },
+  const defaultModels = [
+    { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', name: 'NVIDIA Nemotron 3 Nano Omni (Reasoning)' },
+    { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 Super 120B' },
+    { id: 'mistralai/mistral-nemotron', name: 'Mistral Nemotron (NVIDIA)' },
+    { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision (NVIDIA)' },
+    { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B (NVIDIA)' },
+    { id: 'poolside/laguna-xs-2.1', name: 'Laguna XS 2.1 (NVIDIA)' },
     { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
-    { id: 'google/gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
-    { id: 'moonshot/kimi-k3', name: 'Kimi K3' },
-    { id: 'ollama/qwen2.5-coder:7b', name: 'Qwen 2.5 Coder (Local)' },
-    { id: 'ollama/llama3.2:3b', name: 'Llama 3.2 (Local)' },
+    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash' },
+    { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder (Local)' },
+    { id: 'llama3.2:latest', name: 'Llama 3.2 (Local)' },
   ];
+
+  const [availableModels, setAvailableModels] = useState(defaultModels);
+
+  useEffect(() => {
+    fetch('/api/models')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.models && Array.isArray(data.models) && data.models.length > 0) {
+          const formatted = data.models.map((m: any) => ({
+            id: m.id,
+            name: `${m.name}${m.isLocal ? ' (Local)' : ''}`,
+          }));
+          setAvailableModels(formatted);
+        }
+      })
+      .catch(() => {
+        // Keep default models on error
+      });
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) {

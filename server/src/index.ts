@@ -223,7 +223,12 @@ app.post('/api/chat', async (req, res) => {
   try {
     const allModels = modelRegistry.getAllModels();
     let selectedModel = model
-      ? allModels.find((m) => m.id === model || m.name.toLowerCase() === model.toLowerCase())
+      ? allModels.find(
+          (m) =>
+            m.id === model ||
+            m.name.toLowerCase() === model.toLowerCase() ||
+            m.id.toLowerCase().includes(model.toLowerCase())
+        )
       : null;
     let provider = selectedModel
       ? modelRegistry.getAllProviders().find((p) => p.type === selectedModel!.provider || p.id === selectedModel!.provider)
@@ -236,21 +241,40 @@ app.post('/api/chat', async (req, res) => {
     }
 
     let fullContent = '';
-    const result = await providerGateway.streamChat(
-      selectedModel,
-      provider,
-      chatMessages,
-      [],
-      (chunk: any) => {
-        if (chunk.content) fullContent += chunk.content;
-      }
-    );
+    try {
+      const result = await providerGateway.streamChat(
+        selectedModel,
+        provider,
+        chatMessages,
+        [],
+        (chunk: any) => {
+          if (chunk.content) fullContent += chunk.content;
+        }
+      );
 
-    res.json({
-      model: selectedModel.id,
-      provider: provider.name,
-      content: result.content || fullContent,
-    });
+      res.json({
+        model: selectedModel.id,
+        provider: provider.name,
+        content: result.content || fullContent,
+      });
+    } catch (modelErr: any) {
+      console.warn(`[/api/chat] Model ${selectedModel.id} failed (${modelErr.message}). Falling back to active configured model...`);
+      let fallbackContent = '';
+      const fallbackExecution = await modelRouter.executeWithFallback(
+        ['chat'],
+        chatMessages,
+        [],
+        (chunk: any) => {
+          if (chunk.content) fallbackContent += chunk.content;
+        }
+      );
+      res.json({
+        model: fallbackExecution.usedModel.id,
+        provider: fallbackExecution.usedProvider.name,
+        content: fallbackExecution.result.content || fallbackContent,
+        notice: `Requested model was unavailable. Seamlessly served via ${fallbackExecution.usedModel.name}.`,
+      });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Chat generation failed' });
   }

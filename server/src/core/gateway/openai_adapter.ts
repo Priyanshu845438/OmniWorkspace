@@ -2,6 +2,13 @@ import { ModelDefinition, ToolDefinition, ToolCallRequest } from '../../types/in
 import { ProviderAdapter, ChatMessage, StreamChunk } from './base.js';
 import { normalizeProviderError } from './error_normalizer.js';
 
+const MODEL_ALIASES: Record<string, string> = {
+  'nvidia/llama-3.1-nemotron-70b-instruct': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  'nvidia/deepseek-r1': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  'deepseek/deepseek-r1': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+  'nvidia/kimi-k3': 'nvidia/nemotron-3-super-120b-a12b',
+};
+
 export class OpenAICompatibleAdapter implements ProviderAdapter {
   private defaultBaseUrl: string;
 
@@ -13,7 +20,8 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     apiKey?: string,
     baseUrl?: string
   ): Promise<{ success: boolean; latencyMs: number; error?: string }> {
-    const url = `${baseUrl || this.defaultBaseUrl}/models`;
+    const targetUrl = baseUrl || this.defaultBaseUrl;
+    const url = `${targetUrl}/models`;
     const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
     if (!apiKey && !isLocal) {
       return {
@@ -29,6 +37,37 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       };
       if (apiKey) {
         headers['Authorization'] = `Bearer ${apiKey}`;
+      }
+
+      // For NVIDIA NIM, test completions directly to verify account inference entitlements
+      if (targetUrl.includes('api.nvidia.com')) {
+        const pingRes = await fetch(`${targetUrl}/chat/completions`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+            messages: [{ role: 'user', content: 'ping' }],
+            max_tokens: 1,
+          }),
+          signal: AbortSignal.timeout(8000),
+        });
+        const latencyMs = Date.now() - start;
+        if (!pingRes.ok) {
+          const text = await pingRes.text();
+          if (text.includes('Not found for account')) {
+            return {
+              success: false,
+              latencyMs,
+              error: 'NVIDIA API key valid, but account lacks Public API Endpoints permissions on build.nvidia.com.',
+            };
+          }
+          return {
+            success: false,
+            latencyMs,
+            error: `NVIDIA Chat Error (HTTP ${pingRes.status}): ${text.slice(0, 150)}`,
+          };
+        }
+        return { success: true, latencyMs };
       }
 
       const res = await fetch(url, { method: 'GET', headers, signal: AbortSignal.timeout(6000) });
@@ -81,8 +120,10 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
         }))
       : undefined;
 
+    const effectiveModelId = MODEL_ALIASES[model.id] || model.id;
+
     const payload: Record<string, unknown> = {
-      model: model.id.includes('/') ? model.id : model.id,
+      model: effectiveModelId,
       messages,
       stream: true,
       stream_options: { include_usage: true },
