@@ -34,6 +34,7 @@ export interface StepLog {
 
 export interface WorkflowRunResult {
   workflowId: string;
+  isDryRun?: boolean;
   success: boolean;
   startedAt: string;
   completedAt: string;
@@ -87,7 +88,11 @@ export class WorkflowEngine {
     return this.runHistory.get(workflowId) || [];
   }
 
-  public async runWorkflow(workflowId: string, initialPayload: unknown): Promise<WorkflowRunResult> {
+  public async runWorkflow(
+    workflowId: string,
+    initialPayload: unknown,
+    isDryRun: boolean = false
+  ): Promise<WorkflowRunResult> {
     const wf = this.workflows.get(workflowId);
     if (!wf) throw new Error(`Workflow '${workflowId}' not found.`);
 
@@ -144,12 +149,17 @@ export class WorkflowEngine {
         } else {
           branchResult = Boolean(targetVal) ? 'true' : 'false';
         }
-        nodeOutput = { conditionEvaluated: branchResult };
+        nodeOutput = { conditionEvaluated: branchResult, isDryRun };
       } else if (node.type === 'transform') {
-        nodeOutput = { ...((currentPayload as object) || {}), transformedAt: new Date().toISOString() };
+        nodeOutput = { ...((currentPayload as object) || {}), transformedAt: new Date().toISOString(), isDryRun };
         currentPayload = nodeOutput;
       } else if (node.type === 'action') {
-        nodeOutput = { executedAction: node.actionType || 'custom', input: currentPayload, status: 'ok' };
+        nodeOutput = {
+          executedAction: node.actionType || 'custom',
+          input: currentPayload,
+          status: isDryRun ? 'DRY_RUN_VALIDATED' : 'ok',
+          isDryRun,
+        };
         currentPayload = nodeOutput;
       }
 
@@ -181,6 +191,7 @@ export class WorkflowEngine {
 
     const runResult: WorkflowRunResult = {
       workflowId,
+      isDryRun,
       success: true,
       startedAt: new Date(startTime).toISOString(),
       completedAt: new Date().toISOString(),

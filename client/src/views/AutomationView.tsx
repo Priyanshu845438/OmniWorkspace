@@ -24,7 +24,11 @@ interface NodeStatus {
   output?: any;
 }
 
-export const AutomationView: React.FC = () => {
+interface AutomationViewProps {
+  onAskAi?: (prompt: string) => void;
+}
+
+export const AutomationView: React.FC<AutomationViewProps> = ({ onAskAi }) => {
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [activeWf, setActiveWf] = useState<any>(null);
   const [isRunning, setIsRunning] = useState(false);
@@ -49,7 +53,7 @@ export const AutomationView: React.FC = () => {
     }
   };
 
-  const handleRunWorkflow = async () => {
+  const handleRunWorkflow = async (isDryRun: boolean = false) => {
     if (!activeWf || isRunning) return;
     setIsRunning(true);
     setRunResult(null);
@@ -71,7 +75,7 @@ export const AutomationView: React.FC = () => {
       }));
 
       // Simulate execution time per node
-      const latency = Math.floor(Math.random() * 200) + 120;
+      const latency = Math.floor(Math.random() * 150) + 80;
       await new Promise((resolve) => setTimeout(resolve, latency));
 
       setNodeStatuses((prev) => ({
@@ -82,7 +86,7 @@ export const AutomationView: React.FC = () => {
           output: {
             step: node.label,
             type: node.type,
-            status: 'OK',
+            status: isDryRun ? 'DRY_RUN_VALIDATED' : 'OK',
             timestamp: new Date().toISOString(),
           },
         },
@@ -93,7 +97,7 @@ export const AutomationView: React.FC = () => {
       const res = await fetch(`/api/workflows/${activeWf.id}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload: { triggeredBy: 'user_manual', isClean: true } }),
+        body: JSON.stringify({ payload: { triggeredBy: 'user_manual', isClean: true }, isDryRun }),
       });
       const data = await res.json();
       setRunResult(data);
@@ -197,6 +201,21 @@ export const AutomationView: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
+          {onAskAi && (
+            <button
+              className="btn-secondary"
+              style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+              onClick={() =>
+                onAskAi(
+                  `Design and generate an executable automation workflow DAG for this project workspace. Define trigger, action, condition, and verification steps.`
+                )
+              }
+              title="Design Workflow with AI Automation Agent"
+            >
+              <Sparkles size={14} color="var(--accent-primary)" />
+              <span>AI Workflow</span>
+            </button>
+          )}
           <button className="btn-secondary" style={{ fontSize: '12px' }} onClick={handleExportWorkflow} disabled={!activeWf}>
             <Download size={14} />
             <span>Export DAG</span>
@@ -205,7 +224,17 @@ export const AutomationView: React.FC = () => {
             <Plus size={14} />
             <span>Add Node</span>
           </button>
-          <button className="btn-primary" onClick={handleRunWorkflow} disabled={isRunning || !activeWf}>
+          <button
+            className="btn-secondary"
+            style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            onClick={() => handleRunWorkflow(true)}
+            disabled={isRunning || !activeWf}
+            title="Dry run validation without production side-effects"
+          >
+            <CheckCircle size={14} color="var(--success)" />
+            <span>Dry Run</span>
+          </button>
+          <button className="btn-primary" onClick={() => handleRunWorkflow(false)} disabled={isRunning || !activeWf}>
             <Play size={14} className={isRunning ? 'animate-spin' : ''} />
             <span>{isRunning ? 'Executing DAG...' : 'Execute Workflow'}</span>
           </button>

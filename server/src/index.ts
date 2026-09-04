@@ -208,6 +208,67 @@ app.post('/api/orchestrate/cancel', (req, res) => {
   return res.json({ success: true, message: 'Task not running or already completed', taskId });
 });
 
+// Direct Chat & Dual-Model Arena execution endpoint
+app.post('/api/chat', async (req, res) => {
+  const { prompt, model, messages } = req.body;
+  if (!prompt && (!messages || messages.length === 0)) {
+    return res.status(400).json({ error: 'prompt or messages required' });
+  }
+
+  const chatMessages = messages || [{ role: 'user', content: prompt }];
+
+  try {
+    const allModels = modelRegistry.getAllModels();
+    let selectedModel = model
+      ? allModels.find((m) => m.id === model || m.name.toLowerCase() === model.toLowerCase())
+      : null;
+    let provider = selectedModel
+      ? modelRegistry.getAllProviders().find((p) => p.type === selectedModel!.provider || p.id === selectedModel!.provider)
+      : null;
+
+    if (!selectedModel || !provider) {
+      const route = modelRouter.selectRoute(['chat']);
+      selectedModel = route.model;
+      provider = route.provider;
+    }
+
+    let fullContent = '';
+    const result = await providerGateway.streamChat(
+      selectedModel,
+      provider,
+      chatMessages,
+      [],
+      (chunk: any) => {
+        if (chunk.content) fullContent += chunk.content;
+      }
+    );
+
+    res.json({
+      model: selectedModel.id,
+      provider: provider.name,
+      content: result.content || fullContent,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Chat generation failed' });
+  }
+});
+
+// Deep Research & Live Web Search endpoint
+app.post('/api/research/search', async (req, res) => {
+  const { query, numResults } = req.body;
+  if (!query) return res.status(400).json({ error: 'Query is required' });
+
+  const tool = toolRegistry.getTool('web_search');
+  if (!tool) return res.status(500).json({ error: 'Web search tool is unavailable' });
+
+  try {
+    const result = await tool.handler({ query, numResults: numResults ? String(numResults) : '5' });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 5. Workspaces & Files
 app.get('/api/workspace/files', async (req, res) => {
   const dirPath = (req.query.path as string) || '.';
@@ -315,7 +376,8 @@ app.post('/api/workflows', (req, res) => {
 
 app.post('/api/workflows/:id/run', async (req, res) => {
   try {
-    const runResult = await workflowEngine.runWorkflow(req.params.id, req.body.payload || {});
+    const isDryRun = Boolean(req.body.isDryRun);
+    const runResult = await workflowEngine.runWorkflow(req.params.id, req.body.payload || {}, isDryRun);
     res.json(runResult);
   } catch (err: any) {
     res.status(400).json({ error: err.message });

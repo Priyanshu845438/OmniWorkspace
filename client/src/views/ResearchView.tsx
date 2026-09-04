@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Globe, BookOpen, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { Search, Globe, BookOpen, CheckCircle, ExternalLink, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 interface SearchResult {
   title: string;
@@ -7,7 +7,11 @@ interface SearchResult {
   url: string;
 }
 
-export const ResearchView: React.FC = () => {
+interface ResearchViewProps {
+  onAskAi?: (prompt: string) => void;
+}
+
+export const ResearchView: React.FC<ResearchViewProps> = ({ onAskAi }) => {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -20,37 +24,21 @@ export const ResearchView: React.FC = () => {
     setIsSearching(true);
     setError(null);
     try {
-      const res = await fetch('/api/terminal/run', {
+      const res = await fetch('/api/research/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          command: `node -e "
-            fetch('https://html.duckduckgo.com/html/?q=' + encodeURIComponent('${query.replace(/'/g, "\\'")}'))
-              .then(r => r.text())
-              .then(t => console.log('FETCH_OK'))
-              .catch(e => console.log('ERROR:', e.message));
-          "`,
-        }),
+        body: JSON.stringify({ query: query.trim(), numResults: '5' }),
       });
 
-      // Populate researched facts
-      setResults([
-        {
-          title: `Primary Source: Comprehensive Analysis on "${query}"`,
-          snippet: `Empirical findings and architectural reviews regarding ${query}. Multi-model benchmarks demonstrate high throughput with low latency when capability routing is enforced.`,
-          url: `https://duckduckgo.com/?q=${encodeURIComponent(query)}`,
-        },
-        {
-          title: `Standards & Documentation: ${query}`,
-          snippet: `Official reference guidelines, security principles, and open-source implementation standards verified across academic and production environments.`,
-          url: `https://en.wikipedia.org/wiki/Special:Search?search=${encodeURIComponent(query)}`,
-        },
-        {
-          title: `Comparative Evaluation & Benchmark Evidence`,
-          snippet: `Peer-reviewed performance comparisons illustrating resource utilization, accuracy metrics, and security boundary isolation.`,
-          url: `https://arxiv.org/search/?query=${encodeURIComponent(query)}&searchtype=all`,
-        },
-      ]);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Search failed');
+
+      if (data.results && data.results.length > 0) {
+        setResults(data.results);
+      } else {
+        setResults([]);
+        setError(data.error || 'No search results found for this query.');
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -111,6 +99,46 @@ export const ResearchView: React.FC = () => {
         <span className="badge badge-amber">ESTIMATE: Statistical Projection</span>
         <span className="badge badge-red">UNKNOWN: Unverified Claim</span>
       </div>
+
+      {/* Error Notice */}
+      {error && (
+        <div
+          style={{
+            padding: '10px 14px',
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid #ef4444',
+            borderRadius: 'var(--radius-md)',
+            color: '#fca5a5',
+            fontSize: '13px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+        >
+          <AlertCircle size={15} color="#ef4444" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Synthesize Evidence Report Button */}
+      {onAskAi && results.length > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <button
+            className="btn-primary"
+            style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            onClick={() =>
+              onAskAi(
+                `Synthesize an evidence-backed research report on "${query}" based on the following real sources:\n\n${results
+                  .map((r, idx) => `[Source ${idx + 1}] ${r.title}\nURL: ${r.url}\nExcerpt: ${r.snippet}`)
+                  .join('\n\n')}\n\nStrictly classify statements into FACT, INFERENCE, ESTIMATE, and UNKNOWN. Provide transparent citations.`
+              )
+            }
+          >
+            <Sparkles size={14} />
+            <span>Synthesize Report with AI</span>
+          </button>
+        </div>
+      )}
 
       {/* Search Results / Evidence Cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>

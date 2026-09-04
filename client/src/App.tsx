@@ -330,7 +330,14 @@ export const App: React.FC = () => {
             {activePerspective === 'architecture' && (
               <ArchitectureView onOpenFile={handleOpenFileInCode} />
             )}
-            {activePerspective === 'research' && <ResearchView />}
+            {activePerspective === 'research' && (
+              <ResearchView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'research');
+                }}
+              />
+            )}
             {activePerspective === 'data' && (
               <DataView
                 onAskAi={(prompt) => {
@@ -347,9 +354,30 @@ export const App: React.FC = () => {
                 }}
               />
             )}
-            {activePerspective === 'automation' && <AutomationView />}
-            {activePerspective === 'media' && <MediaView />}
-            {activePerspective === 'documents' && <DocumentView />}
+            {activePerspective === 'automation' && (
+              <AutomationView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'automation');
+                }}
+              />
+            )}
+            {activePerspective === 'media' && (
+              <MediaView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'media');
+                }}
+              />
+            )}
+            {activePerspective === 'documents' && (
+              <DocumentView
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt, 'document');
+                }}
+              />
+            )}
             {activePerspective === 'models' && <ModelManagerView />}
             {activePerspective === 'settings' && (
               <SettingsView theme={theme} onToggleTheme={toggleTheme} />

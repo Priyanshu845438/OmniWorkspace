@@ -1,24 +1,51 @@
-import React, { useState } from 'react';
-import { Image, Video, Music, Sparkles, Download, Layers } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Image, Video, Music, Sparkles, Download, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
-export const MediaView: React.FC = () => {
+interface MediaViewProps {
+  onAskAi?: (prompt: string) => void;
+}
+
+export const MediaView: React.FC<MediaViewProps> = ({ onAskAi }) => {
   const [mediaType, setMediaType] = useState<'image' | 'video' | 'audio'>('image');
   const [prompt, setPrompt] = useState(
     'A futuristic desktop workspace overlooking a neon cybernetic city, ultra-detailed ray tracing.'
   );
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedUrl, setGeneratedUrl] = useState<string | null>(
-    'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80'
-  );
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [capabilityStatus, setCapabilityStatus] = useState<string>('Checking capabilities...');
+  const [hasCapableModel, setHasCapableModel] = useState<boolean>(false);
+  const [generatedOutput, setGeneratedOutput] = useState<string | null>(null);
 
-  const handleGenerate = () => {
-    setIsGenerating(true);
-    setTimeout(() => {
-      setIsGenerating(false);
-      setGeneratedUrl(
-        'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80'
+  useEffect(() => {
+    fetch('/api/models')
+      .then((res) => res.json())
+      .then((data) => {
+        const models = data.models || [];
+        setAvailableModels(models);
+
+        const capable = models.some(
+          (m: any) =>
+            m.enabled &&
+            (m.capabilities.includes('image_generation') ||
+              (mediaType === 'image' && m.capabilities.includes('vision')))
+        );
+        setHasCapableModel(capable);
+        setCapabilityStatus(
+          capable
+            ? 'Multimodal vision routing supported by configured models'
+            : 'No active provider with native media generation configured'
+        );
+      })
+      .catch(() => {
+        setCapabilityStatus('Could not query model registry');
+      });
+  }, [mediaType]);
+
+  const handleAction = () => {
+    if (onAskAi) {
+      onAskAi(
+        `[Creative Multimodal Task] Type: ${mediaType.toUpperCase()}\nPrompt: "${prompt}"\n\nFormulate the complete technical prompt specification, parameter bounds, aspect ratios, negative prompts, and pipeline instructions for media models.`
       );
-    }, 1500);
+    }
   };
 
   return (
@@ -26,12 +53,32 @@ export const MediaView: React.FC = () => {
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
           <span className="badge badge-blue">Generative Media Studio</span>
-          <span className="badge badge-green">Unified Media Router</span>
+          <span className={`badge ${hasCapableModel ? 'badge-green' : 'badge-amber'}`}>
+            {hasCapableModel ? 'Multimodal Compatible' : 'Capability Notice'}
+          </span>
         </div>
         <h1 style={{ fontSize: '24px', fontWeight: '700' }}>Creative Multimodal Studio</h1>
         <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px' }}>
-          Coordinate image, video, and audio synthesis pipelines across configured media models.
+          Coordinate image, video, and audio synthesis pipelines across configured media models without simulated mockups.
         </p>
+      </div>
+
+      {/* Capability Health Banner */}
+      <div
+        style={{
+          background: hasCapableModel ? 'rgba(34, 197, 94, 0.1)' : 'rgba(234, 179, 8, 0.1)',
+          border: `1px solid ${hasCapableModel ? '#22c55e' : '#eab308'}`,
+          borderRadius: 'var(--radius-md)',
+          padding: '12px 16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '13px',
+          color: hasCapableModel ? '#86efac' : '#fde047',
+        }}
+      >
+        {hasCapableModel ? <CheckCircle size={16} color="#22c55e" /> : <AlertTriangle size={16} color="#eab308" />}
+        <span>{capabilityStatus}</span>
       </div>
 
       {/* Mode Switcher */}
@@ -92,59 +139,35 @@ export const MediaView: React.FC = () => {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
-            <span>Provider: Auto Media Gateway</span>
+            <span>Target: {mediaType.toUpperCase()} Pipeline</span>
             <span>•</span>
             <span>Ratio: 16:9</span>
           </div>
 
-          <button className="btn-primary" onClick={handleGenerate} disabled={isGenerating}>
+          <button className="btn-primary" onClick={handleAction}>
             <Sparkles size={14} />
-            <span>{isGenerating ? 'Rendering...' : 'Generate Media'}</span>
+            <span>Generate Prompt & Specifications</span>
           </button>
         </div>
       </div>
 
-      {/* Preview Canvas */}
-      {generatedUrl && (
-        <div
-          style={{
-            background: 'var(--bg-secondary)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-md)',
-            overflow: 'hidden',
-          }}
-        >
-          <div
-            style={{
-              padding: '10px 16px',
-              borderBottom: '1px solid var(--border-subtle)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span style={{ fontSize: '13px', fontWeight: '600' }}>Render Output (1024x576)</span>
-            <a
-              href={generatedUrl}
-              target="_blank"
-              download="generated-media.png"
-              className="btn-secondary"
-              style={{ height: '26px', padding: '0 8px', fontSize: '11px', textDecoration: 'none' }}
-            >
-              <Download size={12} />
-              <span>Export Asset</span>
-            </a>
-          </div>
-
-          <div style={{ padding: '16px', display: 'flex', justifyContent: 'center', background: '#050811' }}>
-            <img
-              src={generatedUrl}
-              alt="Generated Media Preview"
-              style={{ maxWidth: '100%', maxHeight: '420px', borderRadius: 'var(--radius-sm)', objectFit: 'contain' }}
-            />
-          </div>
+      {/* Provider Instructions */}
+      <div
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          padding: '16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', fontWeight: '600', fontSize: '13px' }}>
+          <Info size={15} color="var(--accent-primary)" />
+          <span>Native Provider Capability Requirements</span>
         </div>
-      )}
+        <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+          OmniWorkspace never fakes media renders with stock photos. To execute live image or video diffusion, configure a provider supporting <code>image_generation</code> (such as OpenAI DALL-E or Flux via OpenRouter) in the <strong>Model Manager</strong> view. Multimodal reasoning models like Claude 3.5 Sonnet and Gemini 2.0 Flash are currently available for vision understanding and prompt synthesis.
+        </p>
+      </div>
     </div>
   );
 };
