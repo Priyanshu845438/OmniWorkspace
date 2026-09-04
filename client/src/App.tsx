@@ -502,7 +502,16 @@ export const App: React.FC = () => {
             )}
             {activePerspective === 'models' && <ModelManagerView />}
             {activePerspective === 'settings' && (
-              <SettingsView theme={theme} onToggleTheme={toggleTheme} />
+              <SettingsView
+                theme={theme}
+                onToggleTheme={toggleTheme}
+                activeModelName={activeModelName}
+                onChangeModel={(m) => {
+                  setActiveModelName(m);
+                  fetchUsageTelemetry(m);
+                }}
+                onNavigatePerspective={(p) => setActivePerspective(p)}
+              />
             )}
           </div>
         </main>

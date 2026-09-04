@@ -2,6 +2,72 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
 
+export interface SystemSettings {
+  // General & Appearance
+  theme: 'dark' | 'light';
+  accentColor: string;
+  fontSize: 'compact' | 'standard' | 'comfortable';
+  editorFontFamily: string;
+  enableFontLigatures: boolean;
+  enableSoundEffects: boolean;
+  defaultPerspective: string;
+  compactMode: boolean;
+
+  // AI & Inference
+  defaultModel: string;
+  temperature: number;
+  maxOutputTokens: number;
+  streamingSpeedThrottled: boolean;
+  systemPromptOverride: string;
+  memoryHistoryDepth: number;
+  autoFallbackToLocal: boolean;
+  reasoningEffort: 'low' | 'medium' | 'high';
+
+  // Security & Permissions
+  autoApproveLevel: number;
+  confirmTerminal: boolean;
+  confirmDestructive: boolean;
+  promptInjectionDefense: 'strict' | 'balanced' | 'off';
+  sandboxIsolationPath: string;
+
+  // Workspace & Storage
+  maxFileIndexCount: number;
+  excludedDirectories: string;
+  offlineMode: boolean;
+  corsProxyUrl: string;
+}
+
+export const DEFAULT_SYSTEM_SETTINGS: SystemSettings = {
+  theme: 'dark',
+  accentColor: 'cyan',
+  fontSize: 'standard',
+  editorFontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+  enableFontLigatures: true,
+  enableSoundEffects: false,
+  defaultPerspective: 'home',
+  compactMode: false,
+
+  defaultModel: 'Optimal Auto Router',
+  temperature: 0.3,
+  maxOutputTokens: 4096,
+  streamingSpeedThrottled: false,
+  systemPromptOverride: '',
+  memoryHistoryDepth: 12,
+  autoFallbackToLocal: true,
+  reasoningEffort: 'medium',
+
+  autoApproveLevel: 1,
+  confirmTerminal: true,
+  confirmDestructive: true,
+  promptInjectionDefense: 'strict',
+  sandboxIsolationPath: '',
+
+  maxFileIndexCount: 10000,
+  excludedDirectories: 'node_modules, .git, dist, dist-client, dist-server, coverage',
+  offlineMode: false,
+  corsProxyUrl: '',
+};
+
 export class WorkspaceDatabase {
   private db: DatabaseSync;
 
@@ -56,6 +122,12 @@ export class WorkspaceDatabase {
         source TEXT NOT NULL DEFAULT 'auto_extracted',
         confidence REAL NOT NULL DEFAULT 1.0,
         created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE IF NOT EXISTS system_settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
     `);
@@ -159,6 +231,17 @@ export class WorkspaceDatabase {
           (5, 5, 'Universal Developer Seat License', 34000, '2024-03-01');
       `);
     }
+
+    const checkAudit = this.db.prepare('SELECT COUNT(*) as count FROM audit_events').get() as { count: number };
+    if (checkAudit.count === 0) {
+      this.logAuditEvent('read_file', 0, true, true);
+      this.logAuditEvent('list_dir', 0, true, true);
+      this.logAuditEvent('execute_command', 2, true, true);
+      this.logAuditEvent('write_file', 1, true, true);
+      this.logAuditEvent('web_search', 3, true, true);
+      this.logAuditEvent('sql_query', 1, true, true);
+      this.logAuditEvent('deep_research_synthesize', 3, true, true);
+    }
   }
 
   public getRawDatabase(): DatabaseSync {
@@ -239,5 +322,62 @@ export class WorkspaceDatabase {
     }
     const param = `%${query.trim()}%`;
     return this.db.prepare('SELECT * FROM user_memories WHERE content LIKE ? OR category LIKE ? ORDER BY confidence DESC').all(param, param);
+  }
+
+  // System Settings Engine
+  public getSettings(): SystemSettings {
+    const rows = this.db.prepare('SELECT key, value FROM system_settings').all() as { key: string; value: string }[];
+    const result: any = { ...DEFAULT_SYSTEM_SETTINGS };
+    for (const r of rows) {
+      try {
+        result[r.key] = JSON.parse(r.value);
+      } catch {
+        result[r.key] = r.value;
+      }
+    }
+    return result as SystemSettings;
+  }
+
+  public updateSettings(partial: Partial<SystemSettings>): SystemSettings {
+    const now = new Date().toISOString();
+    const stmt = this.db.prepare(`
+      INSERT INTO system_settings (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `);
+    for (const [k, v] of Object.entries(partial)) {
+      if (v !== undefined) {
+        stmt.run(k, JSON.stringify(v), now);
+      }
+    }
+    return this.getSettings();
+  }
+
+  public resetSettings(): SystemSettings {
+    this.db.exec('DELETE FROM system_settings');
+    return { ...DEFAULT_SYSTEM_SETTINGS };
+  }
+
+  // Security Audit Logging Engine
+  public logAuditEvent(
+    toolName: string,
+    permissionLevel: number,
+    approved: boolean,
+    success: boolean,
+    error?: string
+  ): void {
+    const now = new Date().toISOString();
+    this.db.prepare(
+      'INSERT INTO audit_events (tool_name, permission_level, approved, success, error, timestamp) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(toolName, permissionLevel, approved ? 1 : 0, success ? 1 : 0, error || null, now);
+  }
+
+  public getRecentAuditEvents(limit: number = 50): any[] {
+    return this.db.prepare('SELECT * FROM audit_events ORDER BY id DESC LIMIT ?').all(limit);
+  }
+
+  public vacuumDatabase(): { success: boolean; message: string } {
+    this.db.exec('VACUUM');
+    return { success: true, message: 'Database optimized and compacted successfully via SQLite VACUUM.' };
   }
 }

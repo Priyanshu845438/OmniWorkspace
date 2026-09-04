@@ -737,6 +737,53 @@ app.post('/api/memories/extract', async (req, res) => {
   res.json({ extracted });
 });
 
+// System Configuration & Settings endpoints
+app.get('/api/settings', (_req, res) => {
+  try {
+    const settings = workspaceDb.getSettings();
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/settings', (req, res) => {
+  try {
+    const settings = workspaceDb.updateSettings(req.body);
+    res.json({ success: true, settings });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/settings/reset', (_req, res) => {
+  try {
+    const settings = workspaceDb.resetSettings();
+    res.json({ success: true, settings, message: 'Settings successfully restored to factory defaults.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/settings/audit-log', (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 50;
+    const events = workspaceDb.getRecentAuditEvents(limit);
+    res.json({ success: true, events });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/settings/vacuum', (_req, res) => {
+  try {
+    const result = workspaceDb.vacuumDatabase();
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Deep Research & Live Web Search endpoint
 app.post('/api/research/search', async (req, res) => {
   const { query, numResults, mode } = req.body;
