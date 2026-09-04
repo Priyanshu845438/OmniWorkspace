@@ -102,6 +102,7 @@ export class OllamaAdapter implements ProviderAdapter {
     let accumulatedContent = '';
     const toolCalls: ToolCallRequest[] = [];
     let buffer = '';
+    let reportedUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -117,6 +118,15 @@ export class OllamaAdapter implements ProviderAdapter {
 
         try {
           const parsed = JSON.parse(trimmed);
+
+          if (parsed.prompt_eval_count || parsed.eval_count) {
+            reportedUsage = {
+              promptTokens: parsed.prompt_eval_count || 0,
+              completionTokens: parsed.eval_count || 0,
+              totalTokens: (parsed.prompt_eval_count || 0) + (parsed.eval_count || 0),
+            };
+          }
+
           if (parsed.message?.content) {
             accumulatedContent += parsed.message.content;
             if (onChunk) {
@@ -139,10 +149,19 @@ export class OllamaAdapter implements ProviderAdapter {
       }
     }
 
+    const estimatedPromptTokens = Math.max(1, Math.ceil(messages.map((m) => m.content || '').join(' ').length / 3.8));
+    const estimatedCompletionTokens = Math.max(1, Math.ceil(accumulatedContent.length / 3.8));
+    const finalUsage = reportedUsage || {
+      promptTokens: estimatedPromptTokens,
+      completionTokens: estimatedCompletionTokens,
+      totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+    };
+
     const finalChunk: StreamChunk = {
       content: accumulatedContent,
       toolCalls: toolCalls.length > 0 ? toolCalls : undefined,
       isComplete: true,
+      usage: finalUsage,
     };
 
     if (onChunk) {

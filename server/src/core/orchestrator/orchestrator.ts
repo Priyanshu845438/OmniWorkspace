@@ -188,6 +188,15 @@ export class TaskOrchestrator {
     reasoning?: string;
     trace: TraceStep[];
     verification?: unknown;
+    usage?: {
+      promptTokens: number;
+      completionTokens: number;
+      totalTokens: number;
+      contextWindow: number;
+      tokensRemaining: number;
+      percentRemaining: number;
+      modelName: string;
+    };
   }> {
     const trace: TraceStep[] = [];
 
@@ -337,12 +346,30 @@ export class TaskOrchestrator {
       if (onTraceStep) onTraceStep(vStep);
     }
 
+    const contextWindow = route.model.contextWindow || 128000;
+    const promptTokens = agentResult.usage?.promptTokens || Math.max(1, Math.ceil(userPrompt.length / 3.8));
+    const completionTokens = agentResult.usage?.completionTokens || Math.max(1, Math.ceil(agentResult.response.length / 3.8));
+    const totalUsedTokens = promptTokens + completionTokens;
+    const tokensRemaining = Math.max(0, contextWindow - totalUsedTokens);
+    const percentRemaining = Number(((tokensRemaining / contextWindow) * 100).toFixed(1));
+
+    const usage = {
+      promptTokens,
+      completionTokens,
+      totalTokens: totalUsedTokens,
+      contextWindow,
+      tokensRemaining,
+      percentRemaining,
+      modelName: route.model.name,
+    };
+
     return {
       classification,
       response: agentResult.response,
       reasoning: agentResult.reasoning,
       trace,
       verification: verificationOutput,
+      usage,
     };
   }
 }

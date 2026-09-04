@@ -24,6 +24,7 @@ import {
   Square,
   X,
 } from 'lucide-react';
+import { ModelUsageTelemetry } from '../components/Header.js';
 
 export interface ChatMessage {
   id: string;
@@ -58,6 +59,7 @@ interface ChatViewProps {
   onSendMessage: (msg: string, agent?: string) => void;
   isStreaming: boolean;
   activeModelName?: string;
+  usageTelemetry?: ModelUsageTelemetry;
   onApplyCode?: (code: string) => void;
   onRunInTerminal?: (cmd: string) => void;
   onClearChat?: () => void;
@@ -69,6 +71,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSendMessage,
   isStreaming,
   activeModelName,
+  usageTelemetry,
   onApplyCode,
   onRunInTerminal,
   onClearChat,
@@ -1408,6 +1411,110 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   {q.label}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Live Context Window & Tokens Remaining Indicator */}
+          {usageTelemetry && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '8px',
+                padding: '5px 10px',
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: '6px',
+                fontSize: '11px',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Zap size={12} style={{ color: 'var(--accent-primary)' }} />
+                <span style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                  {usageTelemetry.modelName || activeModelName || 'Optimal Auto'}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>•</span>
+                <span>
+                  Context:{' '}
+                  <strong style={{ color: 'var(--text-primary)' }}>
+                    {(usageTelemetry.totalTokens || 0).toLocaleString()}
+                  </strong>{' '}
+                  / {(usageTelemetry.contextWindow || 128000).toLocaleString()} tokens
+                </span>
+                {input.trim().length > 0 && (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      color: 'var(--accent-primary)',
+                      background: 'rgba(59, 130, 246, 0.1)',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                    }}
+                    title="Estimated tokens in your current draft prompt"
+                  >
+                    +~{Math.max(1, Math.ceil(input.trim().length / 4))} draft tokens
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {/* Visual Capacity Bar */}
+                <div
+                  style={{
+                    width: '64px',
+                    height: '5px',
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    borderRadius: '3px',
+                    overflow: 'hidden',
+                  }}
+                  title={`Context capacity used: ${(100 - (usageTelemetry.percentRemaining ?? 100)).toFixed(1)}%`}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: `${Math.min(100, Math.max(0, 100 - (usageTelemetry.percentRemaining ?? 100)))}%`,
+                      background:
+                        (usageTelemetry.percentRemaining ?? 100) > 30
+                          ? 'linear-gradient(90deg, #10b981, #06b6d4)'
+                          : (usageTelemetry.percentRemaining ?? 100) > 10
+                          ? '#f59e0b'
+                          : '#ef4444',
+                      borderRadius: '3px',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color:
+                      (usageTelemetry.percentRemaining ?? 100) > 30
+                        ? '#10b981'
+                        : (usageTelemetry.percentRemaining ?? 100) > 10
+                        ? '#f59e0b'
+                        : '#ef4444',
+                  }}
+                >
+                  {(usageTelemetry.tokensRemaining ?? usageTelemetry.contextWindow ?? 128000).toLocaleString()} tokens left ({usageTelemetry.percentRemaining ?? 100}%)
+                </span>
+
+                {usageTelemetry.promptTokens > 0 && (
+                  <span
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '10px',
+                    }}
+                    title="Prompt (input) vs Completion (output) tokens recorded this session"
+                  >
+                    (in: {usageTelemetry.promptTokens.toLocaleString()} / out: {usageTelemetry.completionTokens.toLocaleString()})
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

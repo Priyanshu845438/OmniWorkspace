@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Header } from './components/Header.js';
+import { Header, ModelUsageTelemetry } from './components/Header.js';
 import { Sidebar } from './components/Sidebar.js';
 import { ExecutionTimeline, TraceStep } from './components/ExecutionTimeline.js';
 import { BottomPanel } from './components/BottomPanel.js';
@@ -58,10 +58,64 @@ export const App: React.FC = () => {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>('Universal Orchestrator');
   const [activeModelName, setActiveModelName] = useState<string>('Optimal Auto');
+  const [usageTelemetry, setUsageTelemetry] = useState<ModelUsageTelemetry>({
+    promptTokens: 0,
+    completionTokens: 0,
+    totalTokens: 0,
+    contextWindow: 128000,
+    tokensRemaining: 128000,
+    percentRemaining: 100,
+    modelName: 'Optimal Auto',
+  });
 
   // Task & Cancellation Tracking
   const currentTaskIdRef = useRef<string | null>(null);
   const currentAbortControllerRef = useRef<AbortController | null>(null);
+
+  const fetchUsageTelemetry = async (model?: string) => {
+    try {
+      const q = model ? `?model=${encodeURIComponent(model)}` : '';
+      const res = await fetch(`/api/models/usage${q}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.activeModel) {
+          setUsageTelemetry({
+            promptTokens: data.session?.promptTokens || 0,
+            completionTokens: data.session?.completionTokens || 0,
+            totalTokens: data.session?.totalTokens || 0,
+            contextWindow: data.activeModel.contextWindow || 128000,
+            tokensRemaining: data.activeModel.tokensRemaining ?? (data.activeModel.contextWindow || 128000),
+            percentRemaining: data.activeModel.percentRemaining ?? 100,
+            modelName: data.activeModel.modelName || model || 'Optimal Auto',
+          });
+        }
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchUsageTelemetry(activeModelName);
+  }, [activeModelName]);
+
+  const handleResetUsage = async () => {
+    try {
+      const res = await fetch('/api/models/usage/reset', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.usage) {
+          setUsageTelemetry({
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            contextWindow: data.usage.contextWindow || 128000,
+            tokensRemaining: data.usage.contextWindow || 128000,
+            percentRemaining: 100,
+            modelName: activeModelName || 'Optimal Auto',
+          });
+        }
+      }
+    } catch {}
+  };
 
   // Load system health on mount
   useEffect(() => {
@@ -209,7 +263,14 @@ export const App: React.FC = () => {
                     m.id === assistantMsgId ? { ...m, content: m.content + parsed.delta } : m
                   )
                 );
+              } else if (currentEvent === 'usage') {
+                if (parsed && typeof parsed.tokensRemaining === 'number') {
+                  setUsageTelemetry(parsed);
+                }
               } else if (currentEvent === 'done') {
+                if (parsed.usage && typeof parsed.usage.tokensRemaining === 'number') {
+                  setUsageTelemetry(parsed.usage);
+                }
                 if (parsed.response) {
                   setMessages((prev) =>
                     prev.map((m) =>
@@ -317,7 +378,10 @@ export const App: React.FC = () => {
         }}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         activeModelName={activeModelName}
-        onChangeModel={(m) => setActiveModelName(m)}
+        onChangeModel={(m) => {
+          setActiveModelName(m);
+          fetchUsageTelemetry(m);
+        }}
         activePerspective={activePerspective}
         onSelectPerspective={(p) => setActivePerspective(p)}
         theme={theme}
@@ -329,6 +393,8 @@ export const App: React.FC = () => {
         isTerminalOpen={!isBottomCollapsed}
         onToggleTerminal={() => setIsBottomCollapsed(!isBottomCollapsed)}
         healthInfo={healthInfo}
+        usageTelemetry={usageTelemetry}
+        onResetUsage={handleResetUsage}
       />
 
       {/* Main Workspace Body */}
@@ -359,6 +425,7 @@ export const App: React.FC = () => {
                 onSendMessage={(msg, agent) => executeOrchestrator(msg, agent)}
                 isStreaming={isStreaming}
                 activeModelName={activeModelName}
+                usageTelemetry={usageTelemetry}
                 onApplyCode={(_code) => {
                   setActivePerspective('code');
                 }}

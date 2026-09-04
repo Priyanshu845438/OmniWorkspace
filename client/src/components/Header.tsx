@@ -25,7 +25,19 @@ import {
   Check,
   ShieldCheck,
   ArrowRight,
+  Zap,
+  RotateCcw,
 } from 'lucide-react';
+
+export interface ModelUsageTelemetry {
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  contextWindow: number;
+  tokensRemaining: number;
+  percentRemaining: number;
+  modelName: string;
+}
 
 interface HeaderProps {
   onUniversalSubmit: (prompt: string) => void;
@@ -43,6 +55,8 @@ interface HeaderProps {
   isTerminalOpen?: boolean;
   onToggleTerminal?: () => void;
   healthInfo?: any;
+  usageTelemetry?: ModelUsageTelemetry;
+  onResetUsage?: () => void;
 }
 
 interface PerspectiveOption {
@@ -92,6 +106,8 @@ export const Header: React.FC<HeaderProps> = ({
   isTerminalOpen = false,
   onToggleTerminal,
   healthInfo: _healthInfo,
+  usageTelemetry,
+  onResetUsage,
 }) => {
   const [prompt, setPrompt] = useState('');
   const [omniMode, setOmniMode] = useState<'ai' | 'cmd' | 'file'>('ai');
@@ -100,17 +116,29 @@ export const Header: React.FC<HeaderProps> = ({
   const [isGitPopoverOpen, setIsGitPopoverOpen] = useState(false);
   const [isVaultPopoverOpen, setIsVaultPopoverOpen] = useState(false);
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false);
+  const [isUsagePopoverOpen, setIsUsagePopoverOpen] = useState(false);
 
   // Live telemetry state
   const [gitStatus, setGitStatus] = useState<{ branch: string; isClean: boolean; statusSummary: string } | null>(null);
   const [configuredVaultKeys, setConfiguredVaultKeys] = useState<string[]>(['NVIDIA_API_KEY']);
+  const [modelUsageData, setModelUsageData] = useState<any>(null);
 
   // Refs for click outside
   const perspectiveDropdownRef = useRef<HTMLDivElement>(null);
   const modelDropdownRef = useRef<HTMLDivElement>(null);
   const gitDropdownRef = useRef<HTMLDivElement>(null);
   const vaultDropdownRef = useRef<HTMLDivElement>(null);
+  const usageDropdownRef = useRef<HTMLDivElement>(null);
   const searchContainerRef = useRef<HTMLFormElement>(null);
+
+  const fetchUsage = () => {
+    fetch('/api/models/usage')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data) setModelUsageData(data);
+      })
+      .catch(() => {});
+  };
 
   // Load telemetry on mount
   useEffect(() => {
@@ -127,7 +155,19 @@ export const Header: React.FC<HeaderProps> = ({
         if (data && data.configuredSecrets) setConfiguredVaultKeys(data.configuredSecrets);
       })
       .catch(() => {});
+
+    fetchUsage();
+    const interval = setInterval(fetchUsage, 8000);
+    return () => clearInterval(interval);
   }, []);
+
+  const handleResetUsage = async () => {
+    try {
+      await fetch('/api/models/usage/reset', { method: 'POST' });
+      fetchUsage();
+      if (onResetUsage) onResetUsage();
+    } catch {}
+  };
 
   // Handle click outside to close popovers
   useEffect(() => {
@@ -143,6 +183,9 @@ export const Header: React.FC<HeaderProps> = ({
       }
       if (vaultDropdownRef.current && !vaultDropdownRef.current.contains(e.target as Node)) {
         setIsVaultPopoverOpen(false);
+      }
+      if (usageDropdownRef.current && !usageDropdownRef.current.contains(e.target as Node)) {
+        setIsUsagePopoverOpen(false);
       }
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setIsSuggestionsOpen(false);
@@ -726,7 +769,241 @@ export const Header: React.FC<HeaderProps> = ({
           )}
         </div>
 
-        {/* 4. Integrated Terminal Toggle Button */}
+        {/* 4. Live Model Usage & Token Remaining Indicator Pill */}
+        <div style={{ position: 'relative' }} ref={usageDropdownRef}>
+          <button
+            onClick={() => setIsUsagePopoverOpen(!isUsagePopoverOpen)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: isUsagePopoverOpen ? 'var(--bg-tertiary)' : 'var(--bg-tertiary)',
+              border: `1px solid ${isUsagePopoverOpen ? 'var(--border-strong)' : 'var(--border-subtle)'}`,
+              borderRadius: 'var(--radius-sm)',
+              padding: '2px 8px',
+              height: '22px',
+              fontSize: '10.5px',
+              color: 'var(--text-primary)',
+              cursor: 'pointer',
+              transition: 'all 0.12s ease',
+            }}
+            title="Model Token Usage & Context Window (Click for detailed breakdown)"
+          >
+            <Zap size={11} color={(usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 50 ? '#10b981' : (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 20 ? '#f59e0b' : '#ef4444'} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', fontWeight: '600', color: 'var(--text-primary)' }}>
+              {(() => {
+                const rem = usageTelemetry?.tokensRemaining ?? modelUsageData?.activeModel?.tokensRemaining ?? 128000;
+                if (rem >= 1000000) return (rem / 1000000).toFixed(1) + 'M';
+                if (rem >= 1000) return (rem / 1000).toFixed(1) + 'k';
+                return String(rem);
+              })()} left
+            </span>
+            <span
+              style={{
+                fontSize: '9.5px',
+                fontWeight: '700',
+                padding: '1px 5px',
+                borderRadius: '2px',
+                background:
+                  (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 50
+                    ? 'rgba(16, 185, 129, 0.15)'
+                    : (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 20
+                    ? 'rgba(245, 158, 11, 0.15)'
+                    : 'rgba(239, 68, 68, 0.15)',
+                color:
+                  (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 50
+                    ? '#10b981'
+                    : (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 20
+                    ? '#f59e0b'
+                    : '#ef4444',
+              }}
+            >
+              {usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100}%
+            </span>
+          </button>
+
+          {/* Usage Inspector Popover */}
+          {isUsagePopoverOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '6px',
+                width: '320px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-md)',
+                boxShadow: '0 14px 36px rgba(0,0,0,0.5)',
+                padding: '14px',
+                zIndex: 200,
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Zap size={14} color="#38bdf8" />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-primary)' }}>
+                    Context & Token Usage
+                  </span>
+                </div>
+                <button
+                  onClick={handleResetUsage}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                  }}
+                  title="Reset session token statistics"
+                >
+                  <RotateCcw size={10} />
+                  <span>Reset</span>
+                </button>
+              </div>
+
+              {/* Active Model Name */}
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                Active Model:{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>
+                  {activeModelName || modelUsageData?.activeModel?.name || 'Optimal Auto Router'}
+                </strong>
+              </div>
+
+              {/* Visual Context Capacity Meter */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  padding: '10px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '6px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Context Available:</span>
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontWeight: '700',
+                      color:
+                        (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 50
+                          ? '#10b981'
+                          : (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 20
+                          ? '#f59e0b'
+                          : '#ef4444',
+                    }}
+                  >
+                    {(usageTelemetry?.tokensRemaining ?? modelUsageData?.activeModel?.tokensRemaining ?? 128000).toLocaleString()} tokens left ({usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100}%)
+                  </span>
+                </div>
+
+                {/* Progress Bar */}
+                <div
+                  style={{
+                    width: '100%',
+                    height: '6px',
+                    background: 'var(--bg-primary)',
+                    borderRadius: '3px',
+                    overflow: 'hidden',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(100, Math.max(0, 100 - (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100)))}%`,
+                      height: '100%',
+                      background:
+                        (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 50
+                          ? 'linear-gradient(90deg, #10b981, #38bdf8)'
+                          : (usageTelemetry?.percentRemaining ?? modelUsageData?.activeModel?.percentRemaining ?? 100) > 20
+                          ? 'linear-gradient(90deg, #f59e0b, #fbbf24)'
+                          : '#ef4444',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)' }}>
+                  <span>Used: {(usageTelemetry?.totalTokens ?? modelUsageData?.activeModel?.lastTotalTokens ?? 0).toLocaleString()} tokens</span>
+                  <span>Max Window: {(usageTelemetry?.contextWindow ?? modelUsageData?.activeModel?.contextWindow ?? 128000).toLocaleString()} tokens</span>
+                </div>
+              </div>
+
+              {/* Session Statistics Grid */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  marginBottom: '12px',
+                }}
+              >
+                <div style={{ background: 'var(--bg-tertiary)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>PROMPT (INPUT)</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                    {(usageTelemetry?.promptTokens ?? modelUsageData?.session?.totalPromptTokens ?? 0).toLocaleString()}
+                  </div>
+                </div>
+
+                <div style={{ background: 'var(--bg-tertiary)', padding: '8px', borderRadius: 'var(--radius-sm)' }}>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>COMPLETION (OUTPUT)</div>
+                  <div style={{ fontSize: '13px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                    {(usageTelemetry?.completionTokens ?? modelUsageData?.session?.totalCompletionTokens ?? 0).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Models Comparison */}
+              <div style={{ fontSize: '10px', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+                FRONTIER CONTEXT WINDOW LIMITS
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '12px' }}>
+                {[
+                  { name: 'Gemini 2.0 Flash', window: '1,048,576 tokens (1M)' },
+                  { name: 'Claude 3.5 Sonnet', window: '200,000 tokens' },
+                  { name: 'NVIDIA DeepSeek R1', window: '128,000 tokens' },
+                  { name: 'OpenAI GPT-4o', window: '128,000 tokens' },
+                  { name: 'Qwen 2.5 Coder (Local)', window: '32,768 tokens' },
+                ].map((m, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '10px',
+                      padding: '3px 6px',
+                      background: 'var(--bg-tertiary)',
+                      borderRadius: '2px',
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-secondary)' }}>{m.name}</span>
+                    <span style={{ color: 'var(--link-color)', fontFamily: 'var(--font-mono)' }}>{m.window}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Footer status tip */}
+              <div
+                style={{
+                  fontSize: '10px',
+                  color: 'var(--text-muted)',
+                  borderTop: '1px solid var(--border-subtle)',
+                  paddingTop: '8px',
+                  lineHeight: '1.4',
+                }}
+              >
+                Auto-compaction activates when conversation exceeds 80% capacity to preserve memory seamlessly.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 5. Integrated Terminal Toggle Button */}
         {onToggleTerminal && (
           <button
             className="icon-btn"

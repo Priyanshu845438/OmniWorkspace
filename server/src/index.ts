@@ -61,6 +61,65 @@ registerWebTools(toolRegistry);
 registerDataAndSqlTools(toolRegistry, pathShield, () => workspaceDb.getRawDatabase());
 registerMediaAutomationDocTools(toolRegistry, pathShield, () => workflowEngine);
 
+// Session Token & Model Usage Tracking
+interface SessionUsageTracker {
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  totalRequests: number;
+  activeModel: string;
+  contextWindow: number;
+  lastPromptTokens: number;
+  lastCompletionTokens: number;
+  lastTotalTokens: number;
+  tokensRemaining: number;
+  percentRemaining: number;
+  perModelUsage: Record<string, { promptTokens: number; completionTokens: number; totalTokens: number; requests: number }>;
+}
+
+const sessionUsage: SessionUsageTracker = {
+  totalPromptTokens: 0,
+  totalCompletionTokens: 0,
+  totalTokens: 0,
+  totalRequests: 0,
+  activeModel: 'Optimal Auto Router',
+  contextWindow: 128000,
+  lastPromptTokens: 0,
+  lastCompletionTokens: 0,
+  lastTotalTokens: 0,
+  tokensRemaining: 128000,
+  percentRemaining: 100,
+  perModelUsage: {},
+};
+
+function recordSessionUsage(
+  modelName: string,
+  contextWindow: number,
+  promptTokens: number,
+  completionTokens: number
+) {
+  const totalTokens = promptTokens + completionTokens;
+  sessionUsage.totalPromptTokens += promptTokens;
+  sessionUsage.totalCompletionTokens += completionTokens;
+  sessionUsage.totalTokens += totalTokens;
+  sessionUsage.totalRequests += 1;
+  sessionUsage.activeModel = modelName;
+  sessionUsage.contextWindow = contextWindow;
+  sessionUsage.lastPromptTokens = promptTokens;
+  sessionUsage.lastCompletionTokens = completionTokens;
+  sessionUsage.lastTotalTokens = totalTokens;
+  sessionUsage.tokensRemaining = Math.max(0, contextWindow - totalTokens);
+  sessionUsage.percentRemaining = Number(((sessionUsage.tokensRemaining / contextWindow) * 100).toFixed(1));
+
+  if (!sessionUsage.perModelUsage[modelName]) {
+    sessionUsage.perModelUsage[modelName] = { promptTokens: 0, completionTokens: 0, totalTokens: 0, requests: 0 };
+  }
+  sessionUsage.perModelUsage[modelName].promptTokens += promptTokens;
+  sessionUsage.perModelUsage[modelName].completionTokens += completionTokens;
+  sessionUsage.perModelUsage[modelName].totalTokens += totalTokens;
+  sessionUsage.perModelUsage[modelName].requests += 1;
+}
+
 // --- REST & STREAMING API ENDPOINTS ---
 
 // 1. Health & Status
@@ -184,6 +243,52 @@ app.get('/api/models', (req, res) => {
   });
 });
 
+app.get('/api/models/usage', (_req, res) => {
+  const models = modelRegistry.getAllModels().map((m) => ({
+    id: m.id,
+    name: m.name,
+    provider: m.provider,
+    contextWindow: m.contextWindow || 128000,
+    maxOutputTokens: (m as any).maxOutputTokens || 4096,
+    sessionTokensUsed: sessionUsage.perModelUsage[m.name]?.totalTokens || 0,
+    sessionRequests: sessionUsage.perModelUsage[m.name]?.requests || 0,
+  }));
+
+  res.json({
+    session: {
+      totalPromptTokens: sessionUsage.totalPromptTokens,
+      totalCompletionTokens: sessionUsage.totalCompletionTokens,
+      totalTokens: sessionUsage.totalTokens,
+      totalRequests: sessionUsage.totalRequests,
+    },
+    activeModel: {
+      name: sessionUsage.activeModel,
+      contextWindow: sessionUsage.contextWindow,
+      lastPromptTokens: sessionUsage.lastPromptTokens,
+      lastCompletionTokens: sessionUsage.lastCompletionTokens,
+      lastTotalTokens: sessionUsage.lastTotalTokens,
+      tokensRemaining: sessionUsage.tokensRemaining,
+      percentRemaining: sessionUsage.percentRemaining,
+    },
+    models,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+app.post('/api/models/usage/reset', (_req, res) => {
+  sessionUsage.totalPromptTokens = 0;
+  sessionUsage.totalCompletionTokens = 0;
+  sessionUsage.totalTokens = 0;
+  sessionUsage.totalRequests = 0;
+  sessionUsage.lastPromptTokens = 0;
+  sessionUsage.lastCompletionTokens = 0;
+  sessionUsage.lastTotalTokens = 0;
+  sessionUsage.tokensRemaining = sessionUsage.contextWindow;
+  sessionUsage.percentRemaining = 100;
+  sessionUsage.perModelUsage = {};
+  res.json({ success: true, message: 'Session usage reset to 0' });
+});
+
 app.post('/api/models/:id/status', (req, res) => {
   const { enabled } = req.body;
   modelRegistry.updateModelStatus(req.params.id, Boolean(enabled));
@@ -279,12 +384,23 @@ app.post('/api/orchestrate/stream', async (req, res) => {
       conversationHistory
     );
 
+    if (result.usage) {
+      recordSessionUsage(
+        result.usage.modelName,
+        result.usage.contextWindow,
+        result.usage.promptTokens,
+        result.usage.completionTokens
+      );
+      sendEvent('usage', result.usage);
+    }
+
     sendEvent('done', {
       taskId,
       response: result.response,
       reasoning: result.reasoning,
       classification: result.classification,
       verification: result.verification,
+      usage: result.usage,
     });
     isStreamFinished = true;
     res.end();
@@ -414,11 +530,31 @@ app.post('/api/chat', async (req, res) => {
         } catch {}
       }
 
+      const contextWindow = selectedModel.contextWindow || 128000;
+      const promptTokens = result.usage?.promptTokens || Math.max(1, Math.ceil(chatMessages.map((m: any) => m.content || '').join(' ').length / 3.8));
+      const completionTokens = result.usage?.completionTokens || Math.max(1, Math.ceil(finalContent.length / 3.8));
+      const totalTokens = promptTokens + completionTokens;
+      const tokensRemaining = Math.max(0, contextWindow - totalTokens);
+      const percentRemaining = Number(((tokensRemaining / contextWindow) * 100).toFixed(1));
+
+      const usage = {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        contextWindow,
+        tokensRemaining,
+        percentRemaining,
+        modelName: selectedModel.name,
+      };
+
+      recordSessionUsage(selectedModel.name, contextWindow, promptTokens, completionTokens);
+
       res.json({
         model: selectedModel.id,
         provider: provider.name,
         content: finalContent,
         extractedMemories,
+        usage,
       });
     } catch (modelErr: any) {
       console.warn(`[/api/chat] Model ${selectedModel.id} failed (${modelErr.message}). Falling back to active configured model...`);
@@ -440,12 +576,32 @@ app.post('/api/chat', async (req, res) => {
         } catch {}
       }
 
+      const contextWindow = fallbackExecution.usedModel.contextWindow || 128000;
+      const promptTokens = Math.max(1, Math.ceil(chatMessages.map((m: any) => m.content || '').join(' ').length / 3.8));
+      const completionTokens = Math.max(1, Math.ceil(finalContent.length / 3.8));
+      const totalTokens = promptTokens + completionTokens;
+      const tokensRemaining = Math.max(0, contextWindow - totalTokens);
+      const percentRemaining = Number(((tokensRemaining / contextWindow) * 100).toFixed(1));
+
+      const usage = {
+        promptTokens,
+        completionTokens,
+        totalTokens,
+        contextWindow,
+        tokensRemaining,
+        percentRemaining,
+        modelName: fallbackExecution.usedModel.name,
+      };
+
+      recordSessionUsage(fallbackExecution.usedModel.name, contextWindow, promptTokens, completionTokens);
+
       res.json({
         model: fallbackExecution.usedModel.id,
         provider: fallbackExecution.usedProvider.name,
         content: finalContent,
         notice: `Requested model was unavailable. Seamlessly served via ${fallbackExecution.usedModel.name}.`,
         extractedMemories,
+        usage,
       });
     }
   } catch (err: any) {

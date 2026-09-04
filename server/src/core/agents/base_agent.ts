@@ -46,9 +46,16 @@ export class BaseAgent {
     onChunk?: (chunk: StreamChunk) => void,
     signal?: AbortSignal,
     conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>
-  ): Promise<{ response: string; reasoning?: string; trace: TraceStep[]; usedRoute: RouteSelection }> {
+  ): Promise<{
+    response: string;
+    reasoning?: string;
+    trace: TraceStep[];
+    usedRoute: RouteSelection;
+    usage?: { promptTokens: number; completionTokens: number; totalTokens: number };
+  }> {
     const trace: TraceStep[] = [];
     const tools = this.getAvailableTools();
+    const accumulatedUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
 
     // 1. Select optimal model route
     const route = this.router.selectRoute(this.config.requiredCapabilities);
@@ -142,6 +149,12 @@ export class BaseAgent {
       agentStep.status = 'completed';
       agentStep.durationMs = Date.now() - iterStart;
       if (onTraceStep) onTraceStep(agentStep);
+
+      if (resultChunk.usage) {
+        accumulatedUsage.promptTokens += resultChunk.usage.promptTokens || 0;
+        accumulatedUsage.completionTokens += resultChunk.usage.completionTokens || 0;
+        accumulatedUsage.totalTokens += resultChunk.usage.totalTokens || 0;
+      }
 
       if (resultChunk.reasoningContent) {
         accumulatedReasoning += resultChunk.reasoningContent;
@@ -250,6 +263,7 @@ export class BaseAgent {
       reasoning: accumulatedReasoning || undefined,
       trace,
       usedRoute: route,
+      usage: accumulatedUsage.totalTokens > 0 ? accumulatedUsage : undefined,
     };
   }
 }

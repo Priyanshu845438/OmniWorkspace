@@ -173,6 +173,7 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
     const toolCallsAccumulator: Map<number, { id: string; name: string; args: string }> = new Map();
     let buffer = '';
     let finishReason: string | undefined;
+    let reportedUsage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -190,6 +191,16 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
 
         try {
           const parsed = JSON.parse(dataStr);
+
+          // Capture token usage if emitted in stream
+          if (parsed.usage) {
+            reportedUsage = {
+              promptTokens: parsed.usage.prompt_tokens || 0,
+              completionTokens: parsed.usage.completion_tokens || 0,
+              totalTokens: parsed.usage.total_tokens || 0,
+            };
+          }
+
           const choice = parsed.choices?.[0];
           if (!choice) continue;
 
@@ -243,12 +254,21 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       });
     }
 
+    const estimatedPromptTokens = Math.max(1, Math.ceil(messages.map((m) => m.content || '').join(' ').length / 3.8));
+    const estimatedCompletionTokens = Math.max(1, Math.ceil((accumulatedContent.length + accumulatedReasoning.length) / 3.8));
+    const finalUsage = reportedUsage || {
+      promptTokens: estimatedPromptTokens,
+      completionTokens: estimatedCompletionTokens,
+      totalTokens: estimatedPromptTokens + estimatedCompletionTokens,
+    };
+
     const finalChunk: StreamChunk = {
       content: accumulatedContent,
       reasoningContent: accumulatedReasoning || undefined,
       toolCalls: parsedToolCalls.length > 0 ? parsedToolCalls : undefined,
       isComplete: true,
       finishReason,
+      usage: finalUsage,
     };
 
     if (onChunk) {
