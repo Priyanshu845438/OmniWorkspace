@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Lock, Moon, Sun, Cpu, EyeOff, Terminal, Sliders } from 'lucide-react';
+import { Shield, Lock, Moon, Sun } from 'lucide-react';
 
 interface SettingsViewProps {
   theme: 'dark' | 'light';
@@ -9,8 +9,7 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ theme, onToggleTheme }) => {
   const [autoApproveLevel, setAutoApproveLevel] = useState<number>(1);
   const [confirmTerminal, setConfirmTerminal] = useState<boolean>(false);
-  const [confirmNetwork, setConfirmNetwork] = useState<boolean>(false);
-  const [confirmDestructive, setConfirmDestructive] = useState<boolean>(true);
+  const [confirmDestructive] = useState<boolean>(true);
 
   return (
     <div style={{ maxWidth: '850px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>

@@ -2,8 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Folder,
   File,
-  ChevronRight,
-  ChevronDown,
   Save,
   Play,
   GitBranch,
@@ -18,7 +16,6 @@ import {
   ArrowDown,
   ArrowUp,
   Replace,
-  Layers,
 } from 'lucide-react';
 
 interface FileItem {
@@ -41,7 +38,7 @@ interface CodeViewProps {
 
 export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
   const [files, setFiles] = useState<FileItem[]>([]);
-  const [currentPath, setCurrentPath] = useState('.');
+  const [currentPath] = useState('.');
   const [fileFilter, setFileFilter] = useState('');
   const [openTabs, setOpenTabs] = useState<OpenTab[]>([
     { path: 'package.json', content: '', originalContent: '', isDirty: false },

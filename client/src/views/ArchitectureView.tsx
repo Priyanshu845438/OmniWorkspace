@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Network, Search, Layers, RefreshCw, AlertTriangle, FileCode, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Network, Search, RefreshCw, AlertTriangle, FileCode, CheckCircle2 } from 'lucide-react';
 
 interface FileNode {
   id: string;

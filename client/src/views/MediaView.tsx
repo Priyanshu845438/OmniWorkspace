@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Image, Video, Music, Sparkles, Download, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { Image, Video, Music, Sparkles, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
 interface MediaViewProps {
   onAskAi?: (prompt: string) => void;
@@ -10,17 +10,14 @@ export const MediaView: React.FC<MediaViewProps> = ({ onAskAi }) => {
   const [prompt, setPrompt] = useState(
     'A futuristic desktop workspace overlooking a neon cybernetic city, ultra-detailed ray tracing.'
   );
-  const [availableModels, setAvailableModels] = useState<any[]>([]);
   const [capabilityStatus, setCapabilityStatus] = useState<string>('Checking capabilities...');
   const [hasCapableModel, setHasCapableModel] = useState<boolean>(false);
-  const [generatedOutput, setGeneratedOutput] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/models')
       .then((res) => res.json())
       .then((data) => {
         const models = data.models || [];
-        setAvailableModels(models);
 
         const capable = models.some(
           (m: any) =>

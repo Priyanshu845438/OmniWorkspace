@@ -9,7 +9,6 @@ import {
   History,
   Sparkles,
   Search,
-  BookOpen,
 } from 'lucide-react';
 
 interface SqlViewProps {

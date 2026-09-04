@@ -3,19 +3,13 @@ import {
   Cpu,
   Play,
   CheckCircle,
-  Clock,
   ArrowRight,
   Plus,
   RefreshCw,
   Download,
-  Upload,
-  Settings2,
   Trash2,
   Sparkles,
-  Info,
   X,
-  AlertCircle,
-  Layers,
 } from 'lucide-react';
 
 interface NodeStatus {
@@ -324,7 +318,32 @@ export const AutomationView: React.FC<AutomationViewProps> = ({ onAskAi }) => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Cpu size={16} color="var(--accent-primary)" />
-                <span style={{ fontWeight: '600', fontSize: '14px' }}>{activeWf?.name || 'Pipeline DAG'}</span>
+                {workflows.length > 1 ? (
+                  <select
+                    value={activeWf?.id || ''}
+                    onChange={(e) => {
+                      const found = workflows.find((w) => w.id === e.target.value);
+                      if (found) setActiveWf(found);
+                    }}
+                    style={{
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '2px 8px',
+                      color: 'var(--text-primary)',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                    }}
+                  >
+                    {workflows.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span style={{ fontWeight: '600', fontSize: '14px' }}>{activeWf?.name || 'Pipeline DAG'}</span>
+                )}
                 <span className="badge badge-purple" style={{ fontSize: '10px' }}>
                   {activeWf?.nodes?.length || 0} Nodes
                 </span>

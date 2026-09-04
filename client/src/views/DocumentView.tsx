@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, FileCheck, BookOpen, Sparkles, RefreshCw, FileCode, Check } from 'lucide-react';
+import { FileText, FileCheck, Sparkles, RefreshCw } from 'lucide-react';
 
 interface DocumentViewProps {
   onAskAi?: (prompt: string) => void;

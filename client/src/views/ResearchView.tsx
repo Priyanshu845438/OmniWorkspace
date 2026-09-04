@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Globe, BookOpen, CheckCircle, ExternalLink, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { Search, Globe, BookOpen, ExternalLink, Loader2, Sparkles, AlertCircle } from 'lucide-react';
 
 interface SearchResult {
   title: string;

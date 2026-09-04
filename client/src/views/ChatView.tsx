@@ -6,15 +6,9 @@ import {
   Copy,
   Check,
   Sparkles,
-  Sliders,
   Code2,
-  Terminal,
-  Database,
-  Globe2,
   Download,
   Trash2,
-  Layers,
-  Cpu,
   Clock,
   Zap,
 } from 'lucide-react';
@@ -331,6 +325,11 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <option value="sql">SQL & Schema Agent</option>
                 <option value="automation">DAG Automation Agent</option>
               </select>
+              {activeModelName && (
+                <span className="badge badge-purple" style={{ fontSize: '10.5px', padding: '2px 7px' }}>
+                  {activeModelName}
+                </span>
+              )}
             </div>
           )}
         </div>

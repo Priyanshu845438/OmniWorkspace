@@ -42,7 +42,7 @@ export const App: React.FC = () => {
   const [traces, setTraces] = useState<TraceStep[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>('Universal Orchestrator');
-  const [activeModelName, setActiveModelName] = useState<string>('Optimal Auto');
+  const [activeModelName] = useState<string>('Optimal Auto');
 
   // Task & Cancellation Tracking
   const currentTaskIdRef = useRef<string | null>(null);
@@ -303,7 +303,7 @@ export const App: React.FC = () => {
                 onSendMessage={(msg) => executeOrchestrator(msg)}
                 isStreaming={isStreaming}
                 activeModelName={activeModelName}
-                onApplyCode={(code) => {
+                onApplyCode={() => {
                   setActivePerspective('code');
                 }}
                 onClearChat={() =>

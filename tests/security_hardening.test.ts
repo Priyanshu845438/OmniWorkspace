@@ -29,7 +29,7 @@ describe('Security Hardening & Boundary Enforcement', () => {
     const executeSql = toolRegistry.getTool('execute_sql');
     expect(executeSql).toBeDefined();
 
-    const readResult = await executeSql!.handler({ query: 'SELECT * FROM test_users;' });
+    const readResult = (await executeSql!.handler({ query: 'SELECT * FROM test_users;' })) as any;
     expect(readResult.operationType).toBe('READ');
     expect(readResult.rowCount).toBe(2);
     expect(readResult.rows[0].username).toBe('alice');
@@ -50,10 +50,10 @@ describe('Security Hardening & Boundary Enforcement', () => {
     ).rejects.toThrow(/DESTRUCTIVE OPERATION BLOCKED/);
 
     // 3. Destructive query succeeds when isUserConfirmed === true
-    const confirmedResult = await executeSql!.handler({
+    const confirmedResult = (await executeSql!.handler({
       query: 'DELETE FROM test_users;',
       isUserConfirmed: true,
-    });
+    })) as any;
     expect(confirmedResult.operationType).toBe('DESTRUCTIVE');
     expect(confirmedResult.success).toBe(true);
   });

@@ -3,16 +3,13 @@ import {
   BarChart3,
   LineChart,
   PieChart as PieIcon,
-  Table,
   Upload,
   Download,
-  FileSpreadsheet,
   ArrowUpDown,
   Filter,
   X,
   Sparkles,
   Calculator,
-  Layers,
 } from 'lucide-react';
 
 interface DataRow {

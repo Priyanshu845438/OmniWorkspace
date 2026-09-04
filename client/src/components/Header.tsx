@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
 import {
   Layers,
-  Search,
   Sparkles,
   Sun,
   Moon,
-  Cpu,
-  ShieldCheck,
-  ArrowRight,
   Command,
 } from 'lucide-react';
 
@@ -26,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({
   theme,
   onToggleTheme,
   isStreaming,
+  onOpenCommandPalette,
 }) => {
   const [prompt, setPrompt] = useState('');
 

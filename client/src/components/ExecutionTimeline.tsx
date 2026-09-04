@@ -7,8 +7,6 @@ import {
   ChevronDown,
   ChevronRight,
   ShieldAlert,
-  Zap,
-  Filter,
   Search,
   Copy,
   Check,
@@ -27,12 +25,13 @@ export interface TraceStep {
   durationMs?: number;
 }
 
-interface ExecutionTimelineProps {
+export interface ExecutionTimelineProps {
   traces: TraceStep[];
   activeAgent?: string;
   activeModelName?: string;
   onApprove?: (stepId: string) => void;
-  onCancelExecution?: () => void;
+  onCancel?: () => Promise<void> | void;
+  onCancelExecution?: () => Promise<void> | void;
   isStreaming?: boolean;
 }
 
@@ -41,9 +40,11 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
   activeAgent,
   activeModelName,
   onApprove,
+  onCancel,
   onCancelExecution,
   isStreaming,
 }) => {
+  const handleCancel = onCancel || onCancelExecution;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -112,9 +113,9 @@ export const ExecutionTimeline: React.FC<ExecutionTimelineProps> = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span className="badge badge-blue">{activeAgent || 'Orchestrator'}</span>
-          {isStreaming && onCancelExecution && (
+          {isStreaming && handleCancel && (
             <button
-              onClick={onCancelExecution}
+              onClick={handleCancel}
               style={{
                 height: '22px',
                 padding: '0 6px',

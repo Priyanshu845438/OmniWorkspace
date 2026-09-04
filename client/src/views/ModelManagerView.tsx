@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Cpu,
-  Key,
   CheckCircle,
   XCircle,
   RefreshCw,
-  Sliders,
-  Shield,
-  Zap,
   Plus,
   ArrowUp,
   ArrowDown,
-  Trash2,
 } from 'lucide-react';
 
 interface ModelDef {
@@ -44,8 +38,6 @@ export const ModelManagerView: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customUrl, setCustomUrl] = useState('');
-  const [customKey, setCustomKey] = useState('');
-  const [customModel, setCustomModel] = useState('');
 
   const loadData = async () => {
     try {
