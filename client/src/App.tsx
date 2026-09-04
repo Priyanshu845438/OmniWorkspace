@@ -3,6 +3,7 @@ import { Header } from './components/Header.js';
 import { Sidebar } from './components/Sidebar.js';
 import { ExecutionTimeline, TraceStep } from './components/ExecutionTimeline.js';
 import { BottomPanel } from './components/BottomPanel.js';
+import { CommandPalette } from './components/CommandPalette.js';
 
 // Perspective Views
 import { HomeView } from './views/HomeView.js';
@@ -23,6 +24,10 @@ export const App: React.FC = () => {
   const [activePerspective, setActivePerspective] = useState<string>('home');
   const [isBottomCollapsed, setIsBottomCollapsed] = useState<boolean>(false);
   const [healthInfo, setHealthInfo] = useState<any>(null);
+
+  // Command Palette & Navigation State
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [selectedFileForCode, setSelectedFileForCode] = useState<string | null>(null);
 
   // Chat & Execution States
   const [messages, setMessages] = useState<any[]>([
@@ -47,10 +52,27 @@ export const App: React.FC = () => {
       .catch(() => {});
   }, []);
 
+  // Global keyboard shortcut: Cmd+K / Ctrl+K for Universal Command Palette
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const toggleTheme = () => {
     const next = theme === 'dark' ? 'light' : 'dark';
     setTheme(next);
     document.documentElement.setAttribute('data-theme', next);
+  };
+
+  const handleOpenFileInCode = (filePath: string) => {
+    setSelectedFileForCode(filePath);
+    setActivePerspective('code');
   };
 
   /**
@@ -162,12 +184,31 @@ export const App: React.FC = () => {
 
   return (
     <div className="app-container">
+      {/* Universal Command Palette Modal (Cmd+K / Ctrl+K) */}
+      <CommandPalette
+        isOpen={isCommandPaletteOpen}
+        onClose={() => setIsCommandPaletteOpen(false)}
+        onSelectPerspective={(p) => setActivePerspective(p)}
+        onOpenFile={handleOpenFileInCode}
+        onExecuteCommand={async (cmd) => {
+          setIsBottomCollapsed(false);
+          await fetch('/api/terminal/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ command: cmd }),
+          });
+        }}
+        onToggleTheme={toggleTheme}
+        theme={theme}
+      />
+
       {/* Top Header */}
       <Header
         onUniversalSubmit={(p) => {
           executeOrchestrator(p);
           if (activePerspective === 'home') setActivePerspective('chat');
         }}
+        onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         activeModelName={activeModelName}
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -201,10 +242,33 @@ export const App: React.FC = () => {
                 onSendMessage={(msg) => executeOrchestrator(msg)}
                 isStreaming={isStreaming}
                 activeModelName={activeModelName}
+                onApplyCode={(code) => {
+                  setActivePerspective('code');
+                }}
+                onClearChat={() =>
+                  setMessages([
+                    {
+                      id: 'welcome_reset',
+                      role: 'assistant',
+                      content: 'Conversation thread reset. How can I assist you now?',
+                      timestamp: 'Ready',
+                    },
+                  ])
+                }
               />
             )}
-            {activePerspective === 'code' && <CodeView />}
-            {activePerspective === 'architecture' && <ArchitectureView />}
+            {activePerspective === 'code' && (
+              <CodeView
+                initialFile={selectedFileForCode || undefined}
+                onAskAi={(prompt) => {
+                  setActivePerspective('chat');
+                  executeOrchestrator(prompt);
+                }}
+              />
+            )}
+            {activePerspective === 'architecture' && (
+              <ArchitectureView onOpenFile={handleOpenFileInCode} />
+            )}
             {activePerspective === 'research' && <ResearchView />}
             {activePerspective === 'data' && <DataView />}
             {activePerspective === 'sql' && <SqlView />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Terminal,
   AlertTriangle,
@@ -9,11 +9,15 @@ import {
   ChevronUp,
   X,
   Trash2,
+  Copy,
+  Check,
+  Zap,
 } from 'lucide-react';
 
 interface BottomPanelProps {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  onRunExternalCommand?: (cmd: string) => void;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -27,13 +31,24 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   );
   const [isRunning, setIsRunning] = useState(false);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [copied, setCopied] = useState(false);
 
-  const handleRunCommand = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!command.trim() || isRunning) return;
+  // Command History States
+  const [history, setHistory] = useState<string[]>([
+    'npm test',
+    'git status',
+    'git diff',
+  ]);
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null);
 
-    const cmdToRun = command.trim();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const executeCommandString = async (cmdToRun: string) => {
+    if (!cmdToRun.trim() || isRunning) return;
+
     setTerminalOutput((prev) => `${prev}\n$ ${cmdToRun}\n`);
+    setHistory((prev) => [cmdToRun, ...prev.filter((c) => c !== cmdToRun)].slice(0, 30));
+    setHistoryIndex(null);
     setCommand('');
     setIsRunning(true);
 
@@ -57,6 +72,38 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
     }
   };
 
+  const handleRunCommand = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await executeCommandString(command);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (history.length === 0) return;
+      const nextIdx = historyIndex === null ? 0 : Math.min(historyIndex + 1, history.length - 1);
+      setHistoryIndex(nextIdx);
+      setCommand(history[nextIdx]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex === null) return;
+      if (historyIndex === 0) {
+        setHistoryIndex(null);
+        setCommand('');
+      } else {
+        const nextIdx = historyIndex - 1;
+        setHistoryIndex(nextIdx);
+        setCommand(history[nextIdx]);
+      }
+    }
+  };
+
+  const copyTerminalOutput = () => {
+    navigator.clipboard.writeText(terminalOutput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const loadAuditLogs = async () => {
     try {
       const res = await fetch('/api/audit');
@@ -72,6 +119,14 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       loadAuditLogs();
     }
   }, [activeTab]);
+
+  const presetCommands = [
+    { label: 'npm test', cmd: 'npm test' },
+    { label: 'git status', cmd: 'git status' },
+    { label: 'git diff', cmd: 'git diff' },
+    { label: 'npm run build', cmd: 'npm run build' },
+    { label: 'node -v', cmd: 'node -v' },
+  ];
 
   if (isCollapsed) {
     return (
@@ -133,6 +188,17 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         </button>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {activeTab === 'terminal' && (
+            <button
+              className="icon-btn"
+              style={{ padding: '2px 6px', border: 'none', gap: '4px', fontSize: '11px' }}
+              onClick={copyTerminalOutput}
+              title="Copy Output"
+            >
+              {copied ? <Check size={12} color="var(--success)" /> : <Copy size={12} />}
+              <span>{copied ? 'Copied' : 'Copy'}</span>
+            </button>
+          )}
           <button
             className="icon-btn"
             style={{ padding: '2px', border: 'none' }}
@@ -157,6 +223,48 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         {activeTab === 'terminal' && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div className="terminal-viewport">{terminalOutput}</div>
+
+            {/* Quick Command Preset Pills Bar */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '4px 8px',
+                background: '#03050a',
+                borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                overflowX: 'auto',
+              }}
+            >
+              <span style={{ fontSize: '10px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                <Zap size={11} color="var(--accent-primary)" /> Quick:
+              </span>
+              {presetCommands.map((p) => (
+                <button
+                  key={p.cmd}
+                  onClick={() => executeCommandString(p.cmd)}
+                  disabled={isRunning}
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '2px 6px',
+                    fontSize: '10.5px',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+              <span style={{ marginLeft: 'auto', fontSize: '10px', color: 'var(--text-muted)' }}>
+                ↑↓ arrow keys for history
+              </span>
+            </div>
+
+            {/* Terminal Input Form */}
             <form
               onSubmit={handleRunCommand}
               style={{
@@ -171,10 +279,12 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 $
               </span>
               <input
+                ref={inputRef}
                 type="text"
                 value={command}
                 onChange={(e) => setCommand(e.target.value)}
-                placeholder="Type command and press Enter..."
+                onKeyDown={handleKeyDown}
+                placeholder="Type command and press Enter (or use ↑↓ for history)..."
                 disabled={isRunning}
                 style={{
                   flex: 1,

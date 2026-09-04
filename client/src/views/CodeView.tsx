@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Folder,
   File,
@@ -10,6 +10,15 @@ import {
   RefreshCw,
   Search,
   Check,
+  X,
+  Plus,
+  Sparkles,
+  Code2,
+  GitCompare,
+  ArrowDown,
+  ArrowUp,
+  Replace,
+  Layers,
 } from 'lucide-react';
 
 interface FileItem {
@@ -18,14 +27,46 @@ interface FileItem {
   isFile: boolean;
 }
 
-export const CodeView: React.FC = () => {
+interface OpenTab {
+  path: string;
+  content: string;
+  originalContent: string;
+  isDirty: boolean;
+}
+
+interface CodeViewProps {
+  onAskAi?: (prompt: string) => void;
+  initialFile?: string;
+}
+
+export const CodeView: React.FC<CodeViewProps> = ({ onAskAi, initialFile }) => {
   const [files, setFiles] = useState<FileItem[]>([]);
   const [currentPath, setCurrentPath] = useState('.');
-  const [activeFile, setActiveFile] = useState<string>('package.json');
-  const [fileContent, setFileContent] = useState<string>('');
+  const [fileFilter, setFileFilter] = useState('');
+  const [openTabs, setOpenTabs] = useState<OpenTab[]>([
+    { path: 'package.json', content: '', originalContent: '', isDirty: false },
+  ]);
+  const [activeTabPath, setActiveTabPath] = useState<string>('package.json');
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [gitStatus, setGitStatus] = useState<string>('Checking...');
+  const [newFileName, setNewFileName] = useState('');
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+
+  // New Feature States
+  const [viewMode, setViewMode] = useState<'editor' | 'diff'>('editor');
+  const [showFindReplace, setShowFindReplace] = useState(false);
+  const [findQuery, setFindQuery] = useState('');
+  const [replaceQuery, setReplaceQuery] = useState('');
+  const [isCaseSensitive, setIsCaseSensitive] = useState(false);
+  const [isRegex, setIsRegex] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const [showGoToLine, setShowGoToLine] = useState(false);
+  const [targetLineInput, setTargetLineInput] = useState('');
+  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const activeTab = openTabs.find((t) => t.path === activeTabPath) || openTabs[0];
 
   const loadDirectory = async (dir: string) => {
     try {
@@ -35,38 +76,113 @@ export const CodeView: React.FC = () => {
         setFiles(data.items);
       }
     } catch {
-      // ignore error
+      // ignore
     }
   };
 
   const loadFile = async (filePath: string) => {
+    const existing = openTabs.find((t) => t.path === filePath);
+    if (existing) {
+      setActiveTabPath(filePath);
+      return;
+    }
+
     try {
       const res = await fetch(`/api/workspace/file?path=${encodeURIComponent(filePath)}`);
       const data = await res.json();
       if (data.content !== undefined) {
-        setFileContent(data.content);
-        setActiveFile(filePath);
+        setOpenTabs((prev) => [
+          ...prev,
+          {
+            path: filePath,
+            content: data.content,
+            originalContent: data.content,
+            isDirty: false,
+          },
+        ]);
+        setActiveTabPath(filePath);
       }
     } catch {
-      // ignore error
+      // ignore
     }
   };
 
+  const closeTab = (e: React.MouseEvent, path: string) => {
+    e.stopPropagation();
+    const remaining = openTabs.filter((t) => t.path !== path);
+    if (remaining.length === 0) {
+      setOpenTabs([
+        {
+          path: 'scratch.txt',
+          content: '// OmniWorkspace Scratchpad\n',
+          originalContent: '// OmniWorkspace Scratchpad\n',
+          isDirty: false,
+        },
+      ]);
+      setActiveTabPath('scratch.txt');
+    } else {
+      setOpenTabs(remaining);
+      if (activeTabPath === path) {
+        setActiveTabPath(remaining[remaining.length - 1].path);
+      }
+    }
+  };
+
+  const updateActiveContent = (newContent: string) => {
+    setOpenTabs((prev) =>
+      prev.map((tab) =>
+        tab.path === activeTabPath
+          ? {
+              ...tab,
+              content: newContent,
+              isDirty: newContent !== tab.originalContent,
+            }
+          : tab
+      )
+    );
+  };
+
   const saveCurrentFile = async () => {
-    if (!activeFile) return;
+    if (!activeTab) return;
     setIsSaving(true);
     try {
       const res = await fetch('/api/workspace/file', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path: activeFile, content: fileContent }),
+        body: JSON.stringify({ path: activeTab.path, content: activeTab.content }),
       });
       if (res.ok) {
+        setOpenTabs((prev) =>
+          prev.map((tab) =>
+            tab.path === activeTab.path
+              ? { ...tab, originalContent: tab.content, isDirty: false }
+              : tab
+          )
+        );
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 2000);
+        refreshGit();
       }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleCreateFile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFileName.trim()) return;
+    try {
+      await fetch('/api/workspace/file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: newFileName.trim(), content: '' }),
+      });
+      loadDirectory(currentPath);
+      loadFile(newFileName.trim());
+      setNewFileName('');
+      setShowNewFileInput(false);
+    } catch {
+      // ignore
     }
   };
 
@@ -82,13 +198,174 @@ export const CodeView: React.FC = () => {
 
   useEffect(() => {
     loadDirectory(currentPath);
-    loadFile('package.json');
+    loadFile(initialFile || 'package.json');
     refreshGit();
   }, []);
 
+  useEffect(() => {
+    if (initialFile) {
+      loadFile(initialFile);
+    }
+  }, [initialFile]);
+
+  // Global keybindings inside editor: Cmd+F, Cmd+S, Cmd+G
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        saveCurrentFile();
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        setShowFindReplace((prev) => !prev);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        setShowGoToLine((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab]);
+
+  // Match calculator for Find & Replace
+  const getMatches = () => {
+    if (!findQuery || !activeTab?.content) return [];
+    const matches: number[] = [];
+    const content = activeTab.content;
+    try {
+      let regex: RegExp;
+      if (isRegex) {
+        regex = new RegExp(findQuery, isCaseSensitive ? 'g' : 'gi');
+      } else {
+        const escaped = findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escaped, isCaseSensitive ? 'g' : 'gi');
+      }
+      let match;
+      while ((match = regex.exec(content)) !== null) {
+        matches.push(match.index);
+      }
+    } catch {
+      // regex syntax error
+    }
+    return matches;
+  };
+
+  const matches = getMatches();
+
+  const handleNextMatch = () => {
+    if (matches.length === 0) return;
+    const nextIdx = (currentMatchIndex + 1) % matches.length;
+    setCurrentMatchIndex(nextIdx);
+    jumpToIndex(matches[nextIdx]);
+  };
+
+  const handlePrevMatch = () => {
+    if (matches.length === 0) return;
+    const prevIdx = (currentMatchIndex - 1 + matches.length) % matches.length;
+    setCurrentMatchIndex(prevIdx);
+    jumpToIndex(matches[prevIdx]);
+  };
+
+  const jumpToIndex = (index: number) => {
+    if (!textareaRef.current) return;
+    textareaRef.current.focus();
+    textareaRef.current.setSelectionRange(index, index + findQuery.length);
+  };
+
+  const handleReplace = () => {
+    if (!matches.length || !activeTab) return;
+    const idx = matches[currentMatchIndex] || matches[0];
+    const before = activeTab.content.slice(0, idx);
+    const after = activeTab.content.slice(idx + findQuery.length);
+    const updated = before + replaceQuery + after;
+    updateActiveContent(updated);
+  };
+
+  const handleReplaceAll = () => {
+    if (!findQuery || !activeTab) return;
+    try {
+      let regex: RegExp;
+      if (isRegex) {
+        regex = new RegExp(findQuery, isCaseSensitive ? 'g' : 'gi');
+      } else {
+        const escaped = findQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        regex = new RegExp(escaped, isCaseSensitive ? 'g' : 'gi');
+      }
+      const updated = activeTab.content.replace(regex, replaceQuery);
+      updateActiveContent(updated);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGoToLine = (e: React.FormEvent) => {
+    e.preventDefault();
+    const lineNum = parseInt(targetLineInput, 10);
+    if (isNaN(lineNum) || lineNum < 1 || !textareaRef.current || !activeTab) return;
+    const lines = activeTab.content.split('\n');
+    let charOffset = 0;
+    for (let i = 0; i < Math.min(lineNum - 1, lines.length); i++) {
+      charOffset += lines[i].length + 1;
+    }
+    textareaRef.current.focus();
+    textareaRef.current.setSelectionRange(charOffset, charOffset);
+    setShowGoToLine(false);
+    setTargetLineInput('');
+  };
+
+  const handleTextareaSelect = () => {
+    if (!textareaRef.current) return;
+    const selStart = textareaRef.current.selectionStart;
+    const contentUpToCursor = textareaRef.current.value.slice(0, selStart);
+    const lines = contentUpToCursor.split('\n');
+    setCursorPos({
+      line: lines.length,
+      col: lines[lines.length - 1].length + 1,
+    });
+  };
+
+  // Detect file language
+  const getLanguage = (filename: string) => {
+    if (filename.endsWith('.ts') || filename.endsWith('.tsx')) return 'TypeScript';
+    if (filename.endsWith('.js') || filename.endsWith('.jsx')) return 'JavaScript';
+    if (filename.endsWith('.json')) return 'JSON';
+    if (filename.endsWith('.css')) return 'CSS';
+    if (filename.endsWith('.html')) return 'HTML';
+    if (filename.endsWith('.md')) return 'Markdown';
+    if (filename.endsWith('.sql')) return 'SQL';
+    if (filename.endsWith('.sh') || filename.endsWith('.bat')) return 'Shell';
+    return 'Plain Text';
+  };
+
+  // Diff lines calculator for Side-by-Side Diff mode
+  const computeDiffLines = () => {
+    const origLines = (activeTab?.originalContent || '').split('\n');
+    const currLines = (activeTab?.content || '').split('\n');
+    const maxLines = Math.max(origLines.length, currLines.length);
+    const diffRows = [];
+
+    for (let i = 0; i < maxLines; i++) {
+      const orig = origLines[i] !== undefined ? origLines[i] : null;
+      const curr = currLines[i] !== undefined ? currLines[i] : null;
+      let status: 'same' | 'added' | 'removed' | 'modified' = 'same';
+      if (orig === null && curr !== null) status = 'added';
+      else if (orig !== null && curr === null) status = 'removed';
+      else if (orig !== curr) status = 'modified';
+
+      diffRows.push({ lineNum: i + 1, orig, curr, status });
+    }
+    return diffRows;
+  };
+
+  const filteredFiles = files.filter((f) =>
+    f.name.toLowerCase().includes(fileFilter.toLowerCase())
+  );
+
+  const linesCount = (activeTab?.content || '').split('\n').length;
+  const byteSize = new Blob([activeTab?.content || '']).size;
+
   return (
     <div style={{ display: 'flex', height: '100%', gap: '1px', background: 'var(--border-subtle)' }}>
-      {/* File Explorer Pane */}
+      {/* File Explorer Sidebar */}
       <div
         style={{
           width: '240px',
@@ -100,29 +377,87 @@ export const CodeView: React.FC = () => {
         <div
           style={{
             height: '38px',
-            padding: '0 14px',
+            padding: '0 12px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: '1px solid var(--border-subtle)',
-            fontSize: '12px',
+            fontSize: '11.5px',
             fontWeight: '600',
             color: 'var(--text-secondary)',
           }}
         >
-          <span>EXPLORER</span>
-          <button
-            className="icon-btn"
-            style={{ padding: '2px', border: 'none' }}
-            onClick={() => loadDirectory(currentPath)}
-            title="Refresh Explorer"
-          >
-            <RefreshCw size={13} />
-          </button>
+          <span>FILES & EXPLORER</span>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            <button
+              className="icon-btn"
+              style={{ padding: '2px', border: 'none' }}
+              onClick={() => setShowNewFileInput(!showNewFileInput)}
+              title="New File"
+            >
+              <Plus size={13} />
+            </button>
+            <button
+              className="icon-btn"
+              style={{ padding: '2px', border: 'none' }}
+              onClick={() => loadDirectory(currentPath)}
+              title="Refresh Files"
+            >
+              <RefreshCw size={13} />
+            </button>
+          </div>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '8px 4px' }}>
-          {files.map((item, idx) => (
+        {/* Quick Search Filter */}
+        <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border-subtle)' }}>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <input
+              type="text"
+              value={fileFilter}
+              onChange={(e) => setFileFilter(e.target.value)}
+              placeholder="Filter files..."
+              style={{
+                width: '100%',
+                height: '24px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 8px 0 24px',
+                fontSize: '11.5px',
+                color: 'var(--text-primary)',
+                outline: 'none',
+              }}
+            />
+            <Search size={11} style={{ position: 'absolute', left: '8px', color: 'var(--text-muted)' }} />
+          </div>
+        </div>
+
+        {/* New File Inline Form */}
+        {showNewFileInput && (
+          <form onSubmit={handleCreateFile} style={{ padding: '6px 8px', background: 'var(--bg-tertiary)' }}>
+            <input
+              type="text"
+              autoFocus
+              placeholder="Filename (e.g. index.ts)..."
+              value={newFileName}
+              onChange={(e) => setNewFileName(e.target.value)}
+              style={{
+                width: '100%',
+                height: '24px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-accent)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 6px',
+                fontSize: '11.5px',
+                color: 'var(--text-primary)',
+              }}
+            />
+          </form>
+        )}
+
+        {/* File List Tree */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 4px' }}>
+          {filteredFiles.map((item, idx) => (
             <div
               key={idx}
               style={{
@@ -131,9 +466,9 @@ export const CodeView: React.FC = () => {
                 gap: '6px',
                 padding: '5px 8px',
                 borderRadius: 'var(--radius-sm)',
-                fontSize: '12.5px',
-                color: activeFile === item.name ? 'var(--text-accent)' : 'var(--text-primary)',
-                background: activeFile === item.name ? 'var(--bg-tertiary)' : 'transparent',
+                fontSize: '12px',
+                color: activeTabPath === item.name ? 'var(--text-accent)' : 'var(--text-primary)',
+                background: activeTabPath === item.name ? 'var(--bg-tertiary)' : 'transparent',
                 cursor: 'pointer',
               }}
               onClick={() => {
@@ -143,9 +478,9 @@ export const CodeView: React.FC = () => {
               }}
             >
               {item.isDirectory ? (
-                <Folder size={14} color="var(--accent-primary)" />
+                <Folder size={13} color="var(--accent-primary)" />
               ) : (
-                <File size={14} color="var(--text-muted)" />
+                <File size={13} color="var(--text-muted)" />
               )}
               <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {item.name}
@@ -175,7 +510,7 @@ export const CodeView: React.FC = () => {
 
       {/* Editor Main Canvas */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--bg-primary)' }}>
-        {/* Editor Tab Bar */}
+        {/* Multi-Tab Bar */}
         <div
           style={{
             height: '38px',
@@ -184,42 +519,138 @@ export const CodeView: React.FC = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '0 12px',
+            paddingRight: '12px',
+            overflowX: 'auto',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div
-              style={{
-                background: 'var(--bg-primary)',
-                borderTop: '2px solid var(--accent-primary)',
-                padding: '6px 14px',
-                fontSize: '12.5px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              <File size={13} color="var(--accent-primary)" />
-              <span>{activeFile}</span>
-            </div>
+          <div style={{ display: 'flex', height: '100%', alignItems: 'flex-end', overflowX: 'auto' }}>
+            {openTabs.map((tab) => {
+              const isActive = tab.path === activeTabPath;
+              return (
+                <div
+                  key={tab.path}
+                  onClick={() => setActiveTabPath(tab.path)}
+                  style={{
+                    height: '34px',
+                    background: isActive ? 'var(--bg-primary)' : 'var(--bg-secondary)',
+                    borderTop: isActive ? '2px solid var(--accent-primary)' : '2px solid transparent',
+                    borderRight: '1px solid var(--border-subtle)',
+                    padding: '0 12px',
+                    fontSize: '12px',
+                    fontWeight: isActive ? '600' : '400',
+                    color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                  }}
+                >
+                  <File size={12} color={isActive ? 'var(--accent-primary)' : 'var(--text-muted)'} />
+                  <span>{tab.path}</span>
+                  {tab.isDirty && (
+                    <span
+                      style={{
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: 'var(--warning)',
+                      }}
+                      title="Unsaved changes"
+                    />
+                  )}
+                  <button
+                    onClick={(e) => closeTab(e, tab.path)}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--text-muted)',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      borderRadius: '2px',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+              );
+            })}
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+            {/* View Mode Switcher: Editor vs Diff */}
+            <div
+              style={{
+                display: 'flex',
+                background: 'var(--bg-tertiary)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '2px',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <button
+                className={`tab-btn ${viewMode === 'editor' ? 'active' : ''}`}
+                style={{ height: '22px', padding: '0 8px', fontSize: '11px' }}
+                onClick={() => setViewMode('editor')}
+                title="Code Editor"
+              >
+                <Code2 size={12} />
+                <span>Code</span>
+              </button>
+              <button
+                className={`tab-btn ${viewMode === 'diff' ? 'active' : ''}`}
+                style={{ height: '22px', padding: '0 8px', fontSize: '11px' }}
+                onClick={() => setViewMode('diff')}
+                title="Side-by-Side Diff against disk file"
+              >
+                <GitCompare size={12} />
+                <span>Diff {activeTab?.isDirty ? '(Modified)' : ''}</span>
+              </button>
+            </div>
+
+            {/* Find & Replace Toggle */}
+            <button
+              className={`icon-btn ${showFindReplace ? 'active' : ''}`}
+              style={{ height: '26px', width: '26px' }}
+              onClick={() => setShowFindReplace(!showFindReplace)}
+              title="Find & Replace (Cmd+F)"
+            >
+              <Search size={13} />
+            </button>
+
+            {onAskAi && (
+              <button
+                className="btn-secondary"
+                style={{ height: '26px', padding: '0 8px', fontSize: '11px' }}
+                onClick={() =>
+                  onAskAi(
+                    `Explain and inspect the current file '${activeTab.path}':\n\n${activeTab.content.slice(0, 3000)}`
+                  )
+                }
+                title="Explain with AI Co-Pilot"
+              >
+                <Sparkles size={12} color="var(--accent-primary)" />
+                <span>Explain with AI</span>
+              </button>
+            )}
+
             <button
               className="btn-primary"
-              style={{ height: '28px', padding: '0 10px', fontSize: '11.5px' }}
+              style={{ height: '26px', padding: '0 10px', fontSize: '11px' }}
               onClick={saveCurrentFile}
               disabled={isSaving}
+              title="Save File (Cmd+S)"
             >
               {saveSuccess ? (
                 <>
-                  <Check size={13} />
+                  <Check size={12} />
                   <span>Saved</span>
                 </>
               ) : (
                 <>
-                  <Save size={13} />
+                  <Save size={12} />
                   <span>Save</span>
                 </>
               )}
@@ -227,25 +658,322 @@ export const CodeView: React.FC = () => {
           </div>
         </div>
 
-        {/* Code Area */}
-        <div style={{ flex: 1, position: 'relative', display: 'flex' }}>
-          <textarea
-            value={fileContent}
-            onChange={(e) => setFileContent(e.target.value)}
-            spellCheck={false}
+        {/* Find & Replace Bar */}
+        {showFindReplace && (
+          <div
             style={{
-              flex: 1,
-              background: '#070b14',
-              color: '#e2e8f0',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '13px',
-              lineHeight: '1.6',
-              padding: '16px',
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
+              padding: '8px 14px',
+              background: 'var(--bg-secondary)',
+              borderBottom: '1px solid var(--border-accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              fontSize: '12px',
             }}
-          />
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
+              {/* Find Input */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
+                <Search size={12} color="var(--text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Find..."
+                  value={findQuery}
+                  onChange={(e) => {
+                    setFindQuery(e.target.value);
+                    setCurrentMatchIndex(0);
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    width: '160px',
+                  }}
+                />
+                <button
+                  onClick={() => setIsCaseSensitive(!isCaseSensitive)}
+                  style={{
+                    background: isCaseSensitive ? 'var(--accent-primary)' : 'transparent',
+                    color: isCaseSensitive ? '#fff' : 'var(--text-muted)',
+                    border: 'none',
+                    borderRadius: '2px',
+                    padding: '1px 4px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                  title="Match Case"
+                >
+                  Aa
+                </button>
+                <button
+                  onClick={() => setIsRegex(!isRegex)}
+                  style={{
+                    background: isRegex ? 'var(--accent-primary)' : 'transparent',
+                    color: isRegex ? '#fff' : 'var(--text-muted)',
+                    border: 'none',
+                    borderRadius: '2px',
+                    padding: '1px 4px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                  }}
+                  title="Regex Mode"
+                >
+                  .*
+                </button>
+              </div>
+
+              {/* Match Counter & Prev/Next */}
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', minWidth: '70px' }}>
+                {matches.length > 0 ? `${currentMatchIndex + 1} of ${matches.length}` : findQuery ? 'No matches' : ''}
+              </span>
+              <button className="icon-btn" onClick={handlePrevMatch} title="Previous Match" style={{ padding: '2px' }}>
+                <ArrowUp size={13} />
+              </button>
+              <button className="icon-btn" onClick={handleNextMatch} title="Next Match" style={{ padding: '2px' }}>
+                <ArrowDown size={13} />
+              </button>
+
+              {/* Replace Input */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--bg-primary)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-subtle)', marginLeft: '8px' }}>
+                <Replace size={12} color="var(--text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Replace with..."
+                  value={replaceQuery}
+                  onChange={(e) => setReplaceQuery(e.target.value)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    outline: 'none',
+                    color: 'var(--text-primary)',
+                    fontSize: '12px',
+                    width: '160px',
+                  }}
+                />
+              </div>
+              <button className="btn-secondary" style={{ height: '24px', padding: '0 8px', fontSize: '11px' }} onClick={handleReplace} disabled={!matches.length}>
+                Replace
+              </button>
+              <button className="btn-secondary" style={{ height: '24px', padding: '0 8px', fontSize: '11px' }} onClick={handleReplaceAll} disabled={!findQuery}>
+                Replace All
+              </button>
+            </div>
+
+            <button className="icon-btn" onClick={() => setShowFindReplace(false)} title="Close Search">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* Go To Line Bar (Cmd+G) */}
+        {showGoToLine && (
+          <form
+            onSubmit={handleGoToLine}
+            style={{
+              padding: '6px 14px',
+              background: 'var(--bg-secondary)',
+              borderBottom: '1px solid var(--border-accent)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '12px',
+            }}
+          >
+            <span>Jump to line:</span>
+            <input
+              type="number"
+              min={1}
+              max={linesCount}
+              value={targetLineInput}
+              onChange={(e) => setTargetLineInput(e.target.value)}
+              placeholder={`1 - ${linesCount}`}
+              autoFocus
+              style={{
+                width: '80px',
+                height: '24px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-accent)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 6px',
+                color: 'var(--text-primary)',
+              }}
+            />
+            <button type="submit" className="btn-primary" style={{ height: '24px', padding: '0 8px', fontSize: '11px' }}>
+              Go
+            </button>
+            <button type="button" className="icon-btn" onClick={() => setShowGoToLine(false)}>
+              <X size={12} />
+            </button>
+          </form>
+        )}
+
+        {/* Main Editor vs Diff Canvas */}
+        {viewMode === 'editor' ? (
+          <div style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden', background: '#070b14' }}>
+            {/* Gutter with line numbers */}
+            <div
+              style={{
+                width: '48px',
+                padding: '16px 0',
+                textAlign: 'right',
+                paddingRight: '12px',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '12.5px',
+                lineHeight: '1.6',
+                color: 'var(--text-muted)',
+                userSelect: 'none',
+                background: '#050811',
+                borderRight: '1px solid #1e293b',
+                overflowY: 'hidden',
+              }}
+            >
+              {Array.from({ length: Math.min(linesCount, 500) }).map((_, i) => (
+                <div key={i}>{i + 1}</div>
+              ))}
+            </div>
+
+            {/* Textarea Code Body */}
+            <textarea
+              ref={textareaRef}
+              value={activeTab?.content || ''}
+              onChange={(e) => updateActiveContent(e.target.value)}
+              onSelect={handleTextareaSelect}
+              onClick={handleTextareaSelect}
+              onKeyUp={handleTextareaSelect}
+              spellCheck={false}
+              style={{
+                flex: 1,
+                background: '#070b14',
+                color: '#e2e8f0',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '12.5px',
+                lineHeight: '1.6',
+                padding: '16px',
+                border: 'none',
+                outline: 'none',
+                resize: 'none',
+                overflowY: 'auto',
+                whiteSpace: 'pre',
+              }}
+            />
+          </div>
+        ) : (
+          /* Side-by-Side Diff Viewer Canvas */
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#070b14', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '28px',
+                background: 'var(--bg-secondary)',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                fontSize: '11.5px',
+                fontWeight: '600',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <div style={{ padding: '4px 12px', borderRight: '1px solid var(--border-subtle)' }}>
+                ORIGINAL (DISK)
+              </div>
+              <div style={{ padding: '4px 12px' }}>
+                WORKING BUFFER (MODIFIED)
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', fontFamily: 'var(--font-mono)', fontSize: '12px' }}>
+              {computeDiffLines().map((row, i) => {
+                let leftBg = 'transparent';
+                let rightBg = 'transparent';
+                if (row.status === 'added') {
+                  rightBg = 'rgba(16, 185, 129, 0.15)';
+                } else if (row.status === 'removed') {
+                  leftBg = 'rgba(239, 68, 68, 0.15)';
+                } else if (row.status === 'modified') {
+                  leftBg = 'rgba(239, 68, 68, 0.15)';
+                  rightBg = 'rgba(16, 185, 129, 0.15)';
+                }
+
+                return (
+                  <div
+                    key={i}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      lineHeight: '1.6',
+                      borderBottom: '1px solid rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    {/* Left Pane: Original */}
+                    <div
+                      style={{
+                        padding: '0 8px',
+                        background: leftBg,
+                        borderRight: '1px solid var(--border-subtle)',
+                        color: row.status === 'removed' || row.status === 'modified' ? '#f87171' : '#94a3b8',
+                        overflowX: 'auto',
+                        whiteSpace: 'pre',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)', width: '30px', display: 'inline-block', userSelect: 'none' }}>
+                        {row.orig !== null ? row.lineNum : ''}
+                      </span>
+                      {row.orig || ''}
+                    </div>
+
+                    {/* Right Pane: Modified */}
+                    <div
+                      style={{
+                        padding: '0 8px',
+                        background: rightBg,
+                        color: row.status === 'added' || row.status === 'modified' ? '#34d399' : '#e2e8f0',
+                        overflowX: 'auto',
+                        whiteSpace: 'pre',
+                      }}
+                    >
+                      <span style={{ color: 'var(--text-muted)', width: '30px', display: 'inline-block', userSelect: 'none' }}>
+                        {row.curr !== null ? row.lineNum : ''}
+                      </span>
+                      {row.curr || ''}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Editor Footer Status Bar */}
+        <div
+          style={{
+            height: '24px',
+            background: 'var(--bg-secondary)',
+            borderTop: '1px solid var(--border-subtle)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 12px',
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            fontFamily: 'var(--font-mono)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span>Ln {cursorPos.line}, Col {cursorPos.col}</span>
+            <span>{linesCount} lines</span>
+            <span>{(byteSize / 1024).toFixed(1)} KB</span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span>UTF-8</span>
+            <span style={{ color: 'var(--accent-primary)', fontWeight: '600' }}>
+              {getLanguage(activeTabPath)}
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Key, CheckCircle, XCircle, RefreshCw, Sliders, Shield, Zap, AlertTriangle } from 'lucide-react';
+import {
+  Cpu,
+  Key,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Sliders,
+  Shield,
+  Zap,
+  Plus,
+  ArrowUp,
+  ArrowDown,
+  Trash2,
+} from 'lucide-react';
 
 interface ModelDef {
   id: string;
@@ -28,6 +41,11 @@ export const ModelManagerView: React.FC = () => {
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; latencyMs?: number; error?: string }>>({});
   const [keyInputs, setKeyInputs] = useState<Record<string, string>>({});
   const [keySaved, setKeySaved] = useState<Record<string, boolean>>({});
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [customName, setCustomName] = useState('');
+  const [customUrl, setCustomUrl] = useState('');
+  const [customKey, setCustomKey] = useState('');
+  const [customModel, setCustomModel] = useState('');
 
   const loadData = async () => {
     try {
@@ -96,22 +114,112 @@ export const ModelManagerView: React.FC = () => {
     }
   };
 
+  const handleAdjustPriority = async (modelId: string, delta: number) => {
+    const target = models.find((m) => m.id === modelId);
+    if (!target) return;
+    const newPriority = Math.max(1, Math.min(100, target.priority + delta));
+    try {
+      await fetch(`/api/models/${modelId}/priority`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority: newPriority }),
+      });
+      setModels((prev) =>
+        prev.map((m) => (m.id === modelId ? { ...m, priority: newPriority } : m))
+      );
+    } catch {
+      // ignore
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
 
   return (
     <div style={{ maxWidth: '1050px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '28px' }}>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-          <span className="badge badge-blue">Model Manager & Registry</span>
-          <span className="badge badge-green">BYOK Vault Encrypted</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+            <span className="badge badge-blue">Model Manager & Registry</span>
+            <span className="badge badge-green">BYOK Vault Encrypted</span>
+          </div>
+          <h1 style={{ fontSize: '24px', fontWeight: '700' }}>AI Providers & Capability Registry</h1>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px' }}>
+            Connect your own API keys. Keys are stored locally with AES-256-GCM encryption and never transmitted to any third-party proxy.
+          </p>
         </div>
-        <h1 style={{ fontSize: '24px', fontWeight: '700' }}>AI Providers & Capability Registry</h1>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px' }}>
-          Connect your own API keys. Keys are stored locally with AES-256-GCM encryption and never transmitted to any third-party proxy.
-        </p>
+
+        <button className="btn-primary" style={{ fontSize: '12px' }} onClick={() => setShowAddModal(!showAddModal)}>
+          <Plus size={14} />
+          <span>Add Custom Endpoint</span>
+        </button>
       </div>
+
+      {/* Add Custom Provider Inline Form */}
+      {showAddModal && (
+        <div
+          style={{
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-accent)',
+            borderRadius: 'var(--radius-md)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+          }}
+        >
+          <div style={{ fontWeight: '600', fontSize: '13px' }}>Configure Custom OpenAI-Compatible Provider</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <input
+              type="text"
+              placeholder="Provider Name (e.g. Local vLLM, DeepSeek API)"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              style={{
+                height: '32px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 10px',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Base URL (e.g. http://localhost:8000/v1)"
+              value={customUrl}
+              onChange={(e) => setCustomUrl(e.target.value)}
+              style={{
+                height: '32px',
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-strong)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '0 10px',
+                color: 'var(--text-primary)',
+                fontSize: '12px',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button className="btn-secondary" style={{ fontSize: '12px' }} onClick={() => setShowAddModal(false)}>
+              Cancel
+            </button>
+            <button
+              className="btn-primary"
+              style={{ fontSize: '12px' }}
+              onClick={() => {
+                setShowAddModal(false);
+                setCustomName('');
+                setCustomUrl('');
+              }}
+            >
+              Save Provider
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Provider Connectivity Cards */}
       <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>Configured Providers</h2>
@@ -231,7 +339,7 @@ export const ModelManagerView: React.FC = () => {
         })}
       </div>
 
-      {/* Model Registry Matrix */}
+      {/* Model Registry Matrix with Priority Adjusters */}
       <h2 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>Cataloged Models</h2>
 
       <div
@@ -274,8 +382,28 @@ export const ModelManagerView: React.FC = () => {
                     )}
                   </div>
                 </td>
-                <td style={{ padding: '12px 16px', fontFamily: 'var(--font-mono)', fontWeight: '600' }}>
-                  {m.priority}
+                <td style={{ padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontWeight: '600', width: '28px' }}>
+                      {m.priority}
+                    </span>
+                    <button
+                      className="icon-btn"
+                      style={{ padding: '2px', border: 'none' }}
+                      onClick={() => handleAdjustPriority(m.id, 5)}
+                      title="Increase Priority"
+                    >
+                      <ArrowUp size={11} />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      style={{ padding: '2px', border: 'none' }}
+                      onClick={() => handleAdjustPriority(m.id, -5)}
+                      title="Decrease Priority"
+                    >
+                      <ArrowDown size={11} />
+                    </button>
+                  </div>
                 </td>
                 <td style={{ padding: '12px 16px' }}>
                   <button

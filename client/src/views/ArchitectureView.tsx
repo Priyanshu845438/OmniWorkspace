@@ -22,7 +22,11 @@ interface ArchitectureData {
   };
 }
 
-export const ArchitectureView: React.FC = () => {
+interface ArchitectureViewProps {
+  onOpenFile?: (filePath: string) => void;
+}
+
+export const ArchitectureView: React.FC<ArchitectureViewProps> = ({ onOpenFile }) => {
   const [data, setData] = useState<ArchitectureData | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -228,9 +232,19 @@ export const ArchitectureView: React.FC = () => {
           <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
               <h2 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '4px' }}>{selectedNode.name}</h2>
-              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', wordBreak: 'break-all' }}>
                 {selectedNode.id}
               </div>
+              {onOpenFile && (
+                <button
+                  className="btn-primary"
+                  style={{ width: '100%', height: '28px', fontSize: '11.5px', justifyContent: 'center', marginTop: '10px' }}
+                  onClick={() => onOpenFile(selectedNode.id)}
+                >
+                  <FileCode size={13} />
+                  <span>Open in Code Studio</span>
+                </button>
+              )}
             </div>
 
             <div>
