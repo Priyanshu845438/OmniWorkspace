@@ -220,7 +220,77 @@ export class TaskOrchestrator {
     trace.push(classStep);
     if (onTraceStep) onTraceStep(classStep);
 
-    // Step 2: Plan
+    // Step 2: Capability Analysis
+    const capStep: TraceStep = {
+      id: `trace_${Date.now()}_caps`,
+      timestamp: new Date().toISOString(),
+      type: 'capability_requirements',
+      title: 'Task Capability Analysis',
+      details: {
+        agentType: chosenAgentType,
+        requiredCapabilities: classification.requiredCapabilities,
+      },
+      status: 'completed',
+    };
+    trace.push(capStep);
+    if (onTraceStep) onTraceStep(capStep);
+
+    // Step 3: Context Collection
+    const { contextString, items, totalTokens } = this.contextEngine.assembleContext(currentCtx);
+    const contextStep: TraceStep = {
+      id: `trace_${Date.now()}_context`,
+      timestamp: new Date().toISOString(),
+      type: 'context_collection' as any,
+      title: `Context Assembled (${totalTokens} estimated tokens)`,
+      details: {
+        itemsCount: items.length,
+        sources: items.map((i) => i.title),
+        totalTokens,
+      },
+      status: 'completed',
+    };
+    trace.push(contextStep);
+    if (onTraceStep) onTraceStep(contextStep);
+
+    // Step 4: Risk & Permission Analysis
+    const riskStep: TraceStep = {
+      id: `trace_${Date.now()}_risk`,
+      timestamp: new Date().toISOString(),
+      type: 'risk_analysis' as any,
+      title: `Risk Analysis: Level ${classification.riskLevel}`,
+      details: {
+        riskLevel: classification.riskLevel,
+        policy:
+          classification.riskLevel >= 2
+            ? 'Interactive user approval required for shell execution or filesystem alterations.'
+            : 'Standard read-only and local modification permissions granted.',
+      },
+      status: 'completed',
+    };
+    trace.push(riskStep);
+    if (onTraceStep) onTraceStep(riskStep);
+
+    // Step 5: Model Selection
+    const route = this.router.selectRoute(classification.requiredCapabilities);
+    const modelStep: TraceStep = {
+      id: `trace_${Date.now()}_model`,
+      timestamp: new Date().toISOString(),
+      type: 'model_selection',
+      title: `Selected Model: ${route.model.name} (${route.provider.name})`,
+      details: {
+        modelId: route.model.id,
+        provider: route.provider.name,
+        score: route.score,
+        reason: route.reason,
+        matchedCapabilities: route.matchedCapabilities,
+        fallbackChain: route.fallbackChain,
+      },
+      status: 'completed',
+    };
+    trace.push(modelStep);
+    if (onTraceStep) onTraceStep(modelStep);
+
+    // Step 6: Plan
     const planStep: TraceStep = {
       id: `trace_${Date.now()}_plan`,
       timestamp: new Date().toISOString(),
@@ -232,10 +302,7 @@ export class TaskOrchestrator {
     trace.push(planStep);
     if (onTraceStep) onTraceStep(planStep);
 
-    // Step 3: Context Assembly
-    const { contextString } = this.contextEngine.assembleContext(currentCtx);
-
-    // Step 4: Agent Selection and Execution
+    // Step 7: Agent Execution
     const agent = AgentFactory.createAgent(chosenAgentType, this.toolRegistry, this.router);
     const agentResult = await agent.execute(
       userPrompt,
