@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     name: Build Windows Application (.exe)
@@ -32,14 +35,22 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Windows Artifacts
+      - name: Upload Windows Workflow Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-app-x64
           path: release/*.exe
 
+      - name: Attach .exe Binaries to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build-cross-platform:
-    name: Build Linux & macOS Packages
+    name: Build macOS Application (.dmg)
     runs-on: macos-latest
     steps:
       - name: Checkout repository
@@ -62,8 +73,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload macOS Artifacts
+      - name: Upload macOS Workflow Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
           path: release/*.dmg
+
+      - name: Attach .dmg to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release/*.dmg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
