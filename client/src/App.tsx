@@ -53,10 +53,11 @@ export const App: React.FC = () => {
       localStorage.setItem('omni_chat_history', JSON.stringify(messages));
     } catch {}
   }, [messages]);
+
   const [traces, setTraces] = useState<TraceStep[]>([]);
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>('Universal Orchestrator');
-  const [activeModelName] = useState<string>('Optimal Auto');
+  const [activeModelName, setActiveModelName] = useState<string>('Optimal Auto');
 
   // Task & Cancellation Tracking
   const currentTaskIdRef = useRef<string | null>(null);
@@ -316,12 +317,17 @@ export const App: React.FC = () => {
         }}
         onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
         activeModelName={activeModelName}
+        onChangeModel={(m) => setActiveModelName(m)}
         activePerspective={activePerspective}
+        onSelectPerspective={(p) => setActivePerspective(p)}
         theme={theme}
         onToggleTheme={toggleTheme}
         isStreaming={isStreaming}
+        onCancelExecution={handleCancelExecution}
         isRightPanelOpen={isRightPanelOpen}
         onToggleRightPanel={() => setIsRightPanelOpen(!isRightPanelOpen)}
+        isTerminalOpen={!isBottomCollapsed}
+        onToggleTerminal={() => setIsBottomCollapsed(!isBottomCollapsed)}
         healthInfo={healthInfo}
       />
 
