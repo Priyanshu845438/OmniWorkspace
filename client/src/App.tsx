@@ -339,10 +339,11 @@ export const App: React.FC = () => {
             {activePerspective === 'home' && (
               <HomeView
                 onSelectPerspective={(p) => setActivePerspective(p)}
-                onExecutePrompt={(prompt) => {
+                onExecutePrompt={(prompt, agent) => {
                   setActivePerspective('chat');
-                  executeOrchestrator(prompt);
+                  executeOrchestrator(prompt, agent);
                 }}
+                onOpenFile={(filePath) => handleOpenFileInCode(filePath)}
                 healthInfo={healthInfo}
               />
             )}

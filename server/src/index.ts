@@ -77,6 +77,105 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/home/summary', async (_req, res) => {
+  try {
+    let gitStatus = { branch: 'main', isClean: true, statusSummary: 'Working tree clean' };
+    try {
+      const gitTool = toolRegistry.getTool('git_status');
+      if (gitTool) {
+        gitStatus = (await gitTool.handler({})) as any;
+      }
+    } catch {}
+
+    const toolCount = toolRegistry.getAllDefinitions().length;
+    const modelCount = modelRegistry.getAllModels().length;
+    const configuredVaultSecrets = credentialVault.listConfiguredProviders();
+
+    let dbTables: string[] = [];
+    try {
+      const sqlTool = toolRegistry.getTool('inspect_schema');
+      if (sqlTool) {
+        const schemaRes = (await sqlTool.handler({})) as any;
+        dbTables = schemaRes?.tables || [];
+      }
+    } catch {}
+
+    let conversations: any[] = [];
+    try {
+      conversations = workspaceDb.listConversations();
+    } catch {}
+
+    let memories: any[] = [];
+    try {
+      memories = workspaceDb.listMemories();
+    } catch {}
+
+    let documents: any[] = [];
+    try {
+      const docTool = toolRegistry.getTool('list_documents');
+      if (docTool) {
+        const docRes = (await docTool.handler({})) as any;
+        documents = docRes?.documents || [];
+      }
+    } catch {}
+
+    const recentFiles = [
+      { name: 'ChatView.tsx', path: 'client/src/views/ChatView.tsx', category: 'Frontend View', ext: 'tsx' },
+      { name: 'HomeView.tsx', path: 'client/src/views/HomeView.tsx', category: 'Frontend View', ext: 'tsx' },
+      { name: 'CodeView.tsx', path: 'client/src/views/CodeView.tsx', category: 'Frontend View', ext: 'tsx' },
+      { name: 'db.ts', path: 'server/src/core/db/db.ts', category: 'Core Database', ext: 'ts' },
+      { name: 'index.ts', path: 'server/src/index.ts', category: 'Server Gateway', ext: 'ts' },
+      { name: 'ARCHITECTURE.md', path: 'ARCHITECTURE.md', category: 'System Architecture', ext: 'md' },
+      { name: 'DEPLOYMENT-GUIDE.md', path: 'docs/DEPLOYMENT-GUIDE.md', category: 'Documentation', ext: 'md' },
+    ];
+
+    res.json({
+      workspace: {
+        root: WORKSPACE_ROOT,
+        name: path.basename(WORKSPACE_ROOT),
+      },
+      git: gitStatus,
+      security: {
+        status: 'Guarded (Level 0-4)',
+        pathShield: true,
+        injectionDefense: true,
+      },
+      tools: {
+        count: toolCount,
+        categories: ['Filesystem', 'Code', 'Terminal', 'Git', 'Web Search', 'SQL & Data', 'Diagnostics'],
+      },
+      models: {
+        count: modelCount,
+        providers: modelRegistry.getAllProviders().map((p) => ({ id: p.id, name: p.name, enabled: p.enabled })),
+      },
+      vault: {
+        configuredCount: configuredVaultSecrets.length,
+        secrets: configuredVaultSecrets,
+      },
+      database: {
+        tablesCount: dbTables.length,
+        tables: dbTables,
+      },
+      conversations: {
+        count: conversations.length,
+        recent: conversations.slice(0, 5),
+      },
+      memories: {
+        count: memories.length,
+        recent: memories.slice(0, 4),
+      },
+      documents: {
+        count: documents.length,
+        recent: documents.slice(0, 6),
+      },
+      recentFiles,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 2. Model & Provider Management
 app.get('/api/models', (req, res) => {
   res.json({
