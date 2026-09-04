@@ -7,8 +7,6 @@ import {
   Globe2,
   Database,
   BarChart3,
-  Cpu,
-  Image as ImageIcon,
   FileText,
   Sliders,
   Settings,
@@ -35,8 +33,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'research', label: 'Research', fullLabel: 'Deep Web Research', icon: Globe2 },
     { id: 'data', label: 'Data', fullLabel: 'Data Analytics', icon: BarChart3 },
     { id: 'sql', label: 'SQL', fullLabel: 'SQL Database', icon: Database },
-    { id: 'automation', label: 'Auto', fullLabel: 'Workflows (DAG)', icon: Cpu },
-    { id: 'media', label: 'Media', fullLabel: 'Media Studio', icon: ImageIcon },
     { id: 'documents', label: 'Docs', fullLabel: 'Document Analyzer', icon: FileText },
   ];
 

@@ -425,7 +425,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <option value="research">Web & Research Agent</option>
                 <option value="data">Data & Statistics Agent</option>
                 <option value="sql">SQL & Schema Agent</option>
-                <option value="automation">DAG Automation Agent</option>
               </select>
               {activeModelName && (
                 <span className="badge badge-purple" style={{ fontSize: '10.5px', padding: '2px 7px' }}>

@@ -16,8 +16,6 @@ import {
   Sliders,
   Cpu,
   FileText,
-  Workflow,
-  Image as ImageIcon,
 } from 'lucide-react';
 
 export interface CommandItem {
@@ -113,7 +111,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       category: 'View',
       title: 'Architecture Visualizer',
       subtitle: 'Module dependency graph & circular cycle detector',
-      icon: <Workflow size={14} color="var(--accent-primary)" />,
+      icon: <Layers size={14} color="var(--accent-primary)" />,
       action: () => {
         onSelectPerspective('architecture');
         onClose();
@@ -149,28 +147,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       icon: <Database size={14} color="var(--accent-primary)" />,
       action: () => {
         onSelectPerspective('sql');
-        onClose();
-      },
-    },
-    {
-      id: 'view_automation',
-      category: 'View',
-      title: 'Automation & DAG Workflows',
-      subtitle: 'Visual node pipeline orchestration & condition branches',
-      icon: <Workflow size={14} color="var(--accent-primary)" />,
-      action: () => {
-        onSelectPerspective('automation');
-        onClose();
-      },
-    },
-    {
-      id: 'view_media',
-      category: 'View',
-      title: 'Generative Media Studio',
-      subtitle: 'Image, video & audio multi-modal generation',
-      icon: <ImageIcon size={14} color="var(--accent-primary)" />,
-      action: () => {
-        onSelectPerspective('media');
         onClose();
       },
     },

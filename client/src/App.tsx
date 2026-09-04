@@ -12,8 +12,6 @@ import { CodeView } from './views/CodeView.js';
 import { ResearchView } from './views/ResearchView.js';
 import { DataView } from './views/DataView.js';
 import { SqlView } from './views/SqlView.js';
-import { AutomationView } from './views/AutomationView.js';
-import { MediaView } from './views/MediaView.js';
 import { DocumentView } from './views/DocumentView.js';
 import { ArchitectureView } from './views/ArchitectureView.js';
 import { ModelManagerView } from './views/ModelManagerView.js';
@@ -44,7 +42,7 @@ export const App: React.FC = () => {
         id: 'welcome',
         role: 'assistant',
         content:
-          'Welcome to OmniWorkspace. I am your Universal AI Co-Pilot. I can help you write and debug code, conduct web research, run SQL queries, analyze datasets, execute workflows, and coordinate media models. What would you like to build today?',
+          'Welcome to OmniWorkspace. I am your Universal AI Co-Pilot. I can help you write and debug code, conduct deep web research, run SQL queries, and analyze datasets. What would you like to build today?',
         timestamp: 'Ready',
       },
     ];
@@ -403,22 +401,6 @@ export const App: React.FC = () => {
                 onAskAi={(prompt) => {
                   setActivePerspective('chat');
                   executeOrchestrator(prompt, 'sql');
-                }}
-              />
-            )}
-            {activePerspective === 'automation' && (
-              <AutomationView
-                onAskAi={(prompt) => {
-                  setActivePerspective('chat');
-                  executeOrchestrator(prompt, 'automation');
-                }}
-              />
-            )}
-            {activePerspective === 'media' && (
-              <MediaView
-                onAskAi={(prompt) => {
-                  setActivePerspective('chat');
-                  executeOrchestrator(prompt, 'media');
                 }}
               />
             )}

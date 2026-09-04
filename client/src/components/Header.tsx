@@ -33,8 +33,6 @@ const perspectiveTitles: Record<string, string> = {
   research: 'Deep Web Research',
   data: 'Data Analytics & Stats',
   sql: 'SQL Database Studio',
-  automation: 'Workflow Automation',
-  media: 'Media Studio',
   documents: 'Document Analyzer',
   models: 'Model & Vault Manager',
   settings: 'System Preferences',

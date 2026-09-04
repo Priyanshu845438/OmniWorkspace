@@ -4,8 +4,6 @@ import {
   Globe2,
   Database,
   BarChart3,
-  Cpu,
-  Image as ImageIcon,
   FileText,
   ShieldCheck,
   Zap,
@@ -51,20 +49,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
       icon: BarChart3,
       perspective: 'data',
       prompt: 'Inspect employee compensation distribution and compute salary summary statistics.',
-    },
-    {
-      title: 'Workflow Automation',
-      desc: 'Visual Directed Acyclic Graph (DAG) executor with triggers, actions, and conditions.',
-      icon: Cpu,
-      perspective: 'automation',
-      prompt: 'Create a scheduled health check workflow that checks git status and verifies build.',
-    },
-    {
-      title: 'Media Studio',
-      desc: 'Multi-provider image generation, speech-to-text transcription, and neural TTS.',
-      icon: ImageIcon,
-      perspective: 'media',
-      prompt: 'Generate an editorial high-resolution illustration of a modern AI workspace laboratory.',
     },
     {
       title: 'Document Analysis',
@@ -136,7 +120,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             {healthInfo?.toolCount || 28} Active Tools
           </div>
           <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
-            Files, Code, Terminal, Git, Web, SQL, Media
+            Files, Code, Terminal, Git, Web, SQL, Analytics
           </div>
         </div>
 
@@ -149,7 +133,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-            <Cpu size={15} color="var(--link-color)" />
+            <Zap size={15} color="var(--link-color)" />
             <span style={{ fontSize: '11px', fontWeight: '600', letterSpacing: '0.04em' }}>MODEL ROUTING</span>
           </div>
           <div style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-primary)' }}>
