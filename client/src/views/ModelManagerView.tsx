@@ -61,6 +61,8 @@ export const ModelManagerView: React.FC = () => {
     const secretKeyName =
       targetProvider.type === 'nvidia'
         ? 'NVIDIA_API_KEY'
+        : targetProvider.type === 'gemini'
+        ? 'GEMINI_API_KEY'
         : targetProvider.type === 'openrouter'
         ? 'OPENROUTER_API_KEY'
         : targetProvider.type === 'openai'
@@ -248,6 +250,8 @@ export const ModelManagerView: React.FC = () => {
           const secretKeyName =
             p.type === 'nvidia'
               ? 'NVIDIA_API_KEY'
+              : p.type === 'gemini'
+              ? 'GEMINI_API_KEY'
               : p.type === 'openrouter'
               ? 'OPENROUTER_API_KEY'
               : p.type === 'openai'

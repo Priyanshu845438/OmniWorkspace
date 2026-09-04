@@ -2,7 +2,7 @@ import { ModelDefinition, ToolDefinition, ToolCallRequest } from '../../types/in
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | any;
   name?: string;
   tool_call_id?: string;
   tool_calls?: {
@@ -17,6 +17,8 @@ export interface ChatMessage {
 
 export interface StreamChunk {
   content?: string;
+  reasoningContent?: string;
+  role?: 'assistant' | 'system' | 'user' | 'tool';
   toolCalls?: ToolCallRequest[];
   isComplete: boolean;
   finishReason?: string;

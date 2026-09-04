@@ -9,8 +9,19 @@ export class ModelRegistry {
   }
 
   private initDefaultCatalog() {
-    // 1. NVIDIA Hosted Models (Verified Active on integrate.api.nvidia.com)
+    // 1. NVIDIA Hosted Models (Active on integrate.api.nvidia.com)
     const nvidiaModels: ModelDefinition[] = [
+      {
+        id: 'nvidia/nemotron-3-ultra-550b-a55b',
+        name: 'NVIDIA Nemotron 3 Ultra 550B',
+        provider: 'nvidia',
+        type: 'reasoning',
+        capabilities: ['chat', 'reasoning', 'coding', 'tool_calling', 'structured_output', 'streaming', 'long_context'],
+        contextWindow: 128000,
+        priority: 99,
+        enabled: true,
+        description: 'NVIDIA flagship 550B ultra parameter model with deep reasoning and thinking traces.',
+      },
       {
         id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
         name: 'NVIDIA Nemotron 3 Nano Omni',
@@ -23,15 +34,70 @@ export class ModelRegistry {
         description: 'NVIDIA flagship omni-reasoning and coding model with active high-throughput inference.',
       },
       {
-        id: 'nvidia/nemotron-3-super-120b-a12b',
-        name: 'NVIDIA Nemotron 3 Super 120B',
+        id: 'deepseek-ai/deepseek-v4-flash-0731',
+        name: 'DeepSeek V4 Flash (Thinking)',
         provider: 'nvidia',
-        type: 'llm',
+        type: 'reasoning',
+        capabilities: ['chat', 'reasoning', 'coding', 'streaming', 'long_context'],
+        contextWindow: 128000,
+        priority: 97,
+        enabled: true,
+        description: 'DeepSeek V4 high-speed thinking and reasoning model hosted on NVIDIA NIM.',
+      },
+      {
+        id: 'deepseek-ai/deepseek-v4-pro-0813',
+        name: 'DeepSeek V4 Pro',
+        provider: 'nvidia',
+        type: 'coding',
         capabilities: ['chat', 'reasoning', 'coding', 'tool_calling', 'streaming', 'long_context'],
         contextWindow: 128000,
         priority: 96,
         enabled: true,
-        description: 'High-parameter flagship architecture for complex orchestration and architecture.',
+        description: 'DeepSeek V4 state-of-the-art coding and problem-solving model.',
+      },
+      {
+        id: 'moonshotai/kimi-k3',
+        name: 'Kimi K3 (Moonshot)',
+        provider: 'nvidia',
+        type: 'llm',
+        capabilities: ['chat', 'coding', 'vision', 'long_context', 'streaming'],
+        contextWindow: 200000,
+        priority: 95,
+        enabled: true,
+        description: 'Moonshot Kimi K3 200K long context and multimodal model hosted on NVIDIA NIM.',
+      },
+      {
+        id: 'meta/muse-glimmer-30b',
+        name: 'Meta Muse Glimmer 30B',
+        provider: 'nvidia',
+        type: 'reasoning',
+        capabilities: ['chat', 'reasoning', 'coding', 'streaming'],
+        contextWindow: 64000,
+        priority: 94,
+        enabled: true,
+        description: 'Meta Muse Glimmer elite reasoning and logic model on NVIDIA NIM.',
+      },
+      {
+        id: 'google/diffusiongemma-26b-a4b-it',
+        name: 'DiffusionGemma 26B (Vision)',
+        provider: 'nvidia',
+        type: 'vision',
+        capabilities: ['chat', 'vision', 'reasoning', 'streaming'],
+        contextWindow: 64000,
+        priority: 93,
+        enabled: true,
+        description: 'Google multimodal vision and thinking architecture hosted on NVIDIA NIM.',
+      },
+      {
+        id: 'poolside/laguna-xs-2.1',
+        name: 'Poolside Laguna XS 2.1',
+        provider: 'nvidia',
+        type: 'coding',
+        capabilities: ['coding', 'code_completion', 'streaming'],
+        contextWindow: 32768,
+        priority: 92,
+        enabled: true,
+        description: 'High-speed autonomous coding model hosted on NVIDIA NIM.',
       },
       {
         id: 'mistralai/mistral-nemotron',
@@ -40,46 +106,61 @@ export class ModelRegistry {
         type: 'coding',
         capabilities: ['chat', 'coding', 'reasoning', 'tool_calling', 'streaming'],
         contextWindow: 64000,
-        priority: 94,
+        priority: 91,
         enabled: true,
-        description: 'Elite coding and reasoning model accelerated by NVIDIA NIM.',
+        description: 'Mistral Nemotron instruction and coding model.',
       },
       {
         id: 'meta/llama-3.2-11b-vision-instruct',
-        name: 'Llama 3.2 11B Vision (NVIDIA)',
+        name: 'Llama 3.2 11B Vision',
         provider: 'nvidia',
         type: 'vision',
         capabilities: ['chat', 'vision', 'reasoning', 'streaming'],
         contextWindow: 128000,
-        priority: 92,
+        priority: 90,
         enabled: true,
         description: 'Multimodal vision and text instruction model hosted on NVIDIA NIM.',
       },
+    ];
+
+    // 2. Google Gemini Provider
+    const geminiModels: ModelDefinition[] = [
       {
-        id: 'openai/gpt-oss-20b',
-        name: 'GPT-OSS 20B (NVIDIA)',
-        provider: 'nvidia',
+        id: 'gemini-2.0-flash',
+        name: 'Gemini 2.0 Flash',
+        provider: 'gemini',
         type: 'llm',
-        capabilities: ['chat', 'coding', 'streaming'],
-        contextWindow: 32768,
-        priority: 90,
+        capabilities: ['chat', 'reasoning', 'coding', 'tool_calling', 'vision', 'streaming', 'long_context', 'structured_output'],
+        contextWindow: 1048576,
+        priority: 99,
         enabled: true,
-        description: 'Fast open-source foundation model hosted on NVIDIA NIM.',
+        description: 'Google flagship high-speed multimodal intelligence with 1M token context.',
       },
       {
-        id: 'poolside/laguna-xs-2.1',
-        name: 'Laguna XS 2.1 (NVIDIA)',
-        provider: 'nvidia',
-        type: 'coding',
-        capabilities: ['coding', 'code_completion', 'streaming'],
-        contextWindow: 32768,
-        priority: 88,
+        id: 'gemini-2.0-flash-thinking-exp',
+        name: 'Gemini 2.0 Flash Thinking',
+        provider: 'gemini',
+        type: 'reasoning',
+        capabilities: ['reasoning', 'coding', 'chat', 'vision', 'streaming', 'long_context'],
+        contextWindow: 1048576,
+        priority: 98,
         enabled: true,
-        description: 'High-speed code synthesis model hosted on NVIDIA NIM.',
+        description: 'Google experimental reasoning model with native step-by-step thinking traces.',
+      },
+      {
+        id: 'gemini-1.5-pro',
+        name: 'Gemini 1.5 Pro',
+        provider: 'gemini',
+        type: 'coding',
+        capabilities: ['chat', 'reasoning', 'coding', 'tool_calling', 'vision', 'streaming', 'long_context'],
+        contextWindow: 2097152,
+        priority: 96,
+        enabled: true,
+        description: 'Google 2M context flagship for massive repository and documentation analysis.',
       },
     ];
 
-    // 2. OpenRouter Provider
+    // 3. OpenRouter Provider
     const openRouterModels: ModelDefinition[] = [
       {
         id: 'anthropic/claude-3.5-sonnet',
@@ -94,7 +175,7 @@ export class ModelRegistry {
       },
       {
         id: 'google/gemini-2.0-flash-001',
-        name: 'Gemini 2.0 Flash',
+        name: 'Gemini 2.0 Flash (OpenRouter)',
         provider: 'openrouter',
         type: 'llm',
         capabilities: ['chat', 'reasoning', 'coding', 'tool_calling', 'vision', 'streaming', 'long_context'],
@@ -105,7 +186,7 @@ export class ModelRegistry {
       },
     ];
 
-    // 3. Ollama (Local Models)
+    // 4. Ollama (Local Models)
     const ollamaModels: ModelDefinition[] = [
       {
         id: 'qwen2.5-coder:latest',
@@ -133,7 +214,7 @@ export class ModelRegistry {
       },
     ];
 
-    // 4. Standard OpenAI / Compatible
+    // 5. Standard OpenAI / Compatible
     const openAIModels: ModelDefinition[] = [
       {
         id: 'gpt-4o',
@@ -166,6 +247,16 @@ export class ModelRegistry {
       isLocal: false,
       enabled: true,
       models: nvidiaModels,
+    });
+
+    this.registerProvider({
+      id: 'gemini',
+      name: 'Google Gemini',
+      type: 'gemini',
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      isLocal: false,
+      enabled: true,
+      models: geminiModels,
     });
 
     this.registerProvider({

@@ -44,8 +44,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   // Arena Comparison State
   const [isArenaMode, setIsArenaMode] = useState(false);
-  const [modelA, setModelA] = useState('nvidia/nemotron-3-nano-omni-30b-a3b-reasoning');
-  const [modelB, setModelB] = useState('nvidia/nemotron-3-super-120b-a12b');
+  const [modelA, setModelA] = useState('nvidia/nemotron-3-ultra-550b-a55b');
+  const [modelB, setModelB] = useState('deepseek-ai/deepseek-v4-flash-0731');
   const [arenaResponseA, setArenaResponseA] = useState('');
   const [arenaResponseB, setArenaResponseB] = useState('');
   const [arenaTimingA, setArenaTimingA] = useState<number | null>(null);
@@ -60,14 +60,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
   ];
 
   const defaultModels = [
-    { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', name: 'NVIDIA Nemotron 3 Nano Omni (Reasoning)' },
-    { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 Super 120B' },
-    { id: 'mistralai/mistral-nemotron', name: 'Mistral Nemotron (NVIDIA)' },
-    { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision (NVIDIA)' },
-    { id: 'openai/gpt-oss-20b', name: 'GPT-OSS 20B (NVIDIA)' },
-    { id: 'poolside/laguna-xs-2.1', name: 'Laguna XS 2.1 (NVIDIA)' },
+    { id: 'nvidia/nemotron-3-ultra-550b-a55b', name: 'NVIDIA Nemotron 3 Ultra 550B (Reasoning)' },
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash (Google)' },
+    { id: 'gemini-2.0-flash-thinking-exp', name: 'Gemini 2.0 Flash Thinking' },
+    { id: 'moonshotai/kimi-k3', name: 'Kimi K3 (Moonshot 200K)' },
+    { id: 'deepseek-ai/deepseek-v4-flash-0731', name: 'DeepSeek V4 Flash (Thinking)' },
+    { id: 'deepseek-ai/deepseek-v4-pro-0813', name: 'DeepSeek V4 Pro' },
+    { id: 'meta/muse-glimmer-30b', name: 'Meta Muse Glimmer 30B' },
+    { id: 'poolside/laguna-xs-2.1', name: 'Poolside Laguna XS 2.1' },
+    { id: 'google/diffusiongemma-26b-a4b-it', name: 'DiffusionGemma 26B (Vision)' },
+    { id: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning', name: 'NVIDIA Nemotron 3 Nano Omni' },
+    { id: 'mistralai/mistral-nemotron', name: 'Mistral Nemotron' },
+    { id: 'meta/llama-3.2-11b-vision-instruct', name: 'Llama 3.2 11B Vision' },
     { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
-    { id: 'google/gemini-2.0-flash-001', name: 'Gemini 2.0 Flash' },
     { id: 'qwen2.5-coder:latest', name: 'Qwen 2.5 Coder (Local)' },
     { id: 'llama3.2:latest', name: 'Llama 3.2 (Local)' },
   ];

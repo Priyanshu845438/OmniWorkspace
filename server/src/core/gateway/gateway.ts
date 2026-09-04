@@ -13,11 +13,13 @@ export class ProviderGateway {
     // Register adapters
     const openAIAdapter = new OpenAICompatibleAdapter('https://api.openai.com/v1');
     const nvidiaAdapter = new OpenAICompatibleAdapter('https://integrate.api.nvidia.com/v1');
+    const geminiAdapter = new OpenAICompatibleAdapter('https://generativelanguage.googleapis.com/v1beta/openai');
     const openRouterAdapter = new OpenAICompatibleAdapter('https://openrouter.ai/api/v1');
     const ollamaAdapter = new OllamaAdapter('http://localhost:11434');
 
     this.adapters.set('openai', openAIAdapter);
     this.adapters.set('nvidia', nvidiaAdapter);
+    this.adapters.set('gemini', geminiAdapter);
     this.adapters.set('openrouter', openRouterAdapter);
     this.adapters.set('ollama', ollamaAdapter);
     this.adapters.set('vllm', openAIAdapter);
@@ -28,6 +30,8 @@ export class ProviderGateway {
     switch (providerType) {
       case 'nvidia':
         return this.vault.getSecret('NVIDIA_API_KEY');
+      case 'gemini':
+        return this.vault.getSecret('GEMINI_API_KEY') || this.vault.getSecret('GOOGLE_API_KEY');
       case 'openrouter':
         return this.vault.getSecret('OPENROUTER_API_KEY');
       case 'openai':

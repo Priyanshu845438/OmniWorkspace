@@ -3,10 +3,17 @@ import { ProviderAdapter, ChatMessage, StreamChunk } from './base.js';
 import { normalizeProviderError } from './error_normalizer.js';
 
 const MODEL_ALIASES: Record<string, string> = {
-  'nvidia/llama-3.1-nemotron-70b-instruct': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-  'nvidia/deepseek-r1': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-  'deepseek/deepseek-r1': 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
-  'nvidia/kimi-k3': 'nvidia/nemotron-3-super-120b-a12b',
+  'nvidia/llama-3.1-nemotron-70b-instruct': 'nvidia/nemotron-3-ultra-550b-a55b',
+  'nvidia/deepseek-r1': 'deepseek-ai/deepseek-v4-flash-0731',
+  'deepseek/deepseek-r1': 'deepseek-ai/deepseek-v4-flash-0731',
+  'nvidia/kimi-k3': 'moonshotai/kimi-k3',
+  'kimi-k3': 'moonshotai/kimi-k3',
+  'deepseek-v4-flash': 'deepseek-ai/deepseek-v4-flash-0731',
+  'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro-0813',
+  'muse-glimmer': 'meta/muse-glimmer-30b',
+  'laguna-xs': 'poolside/laguna-xs-2.1',
+  'diffusiongemma': 'google/diffusiongemma-26b-a4b-it',
+  'gemini': 'gemini-2.0-flash',
 };
 
 export class OpenAICompatibleAdapter implements ProviderAdapter {
@@ -129,6 +136,14 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
       stream_options: { include_usage: true },
     };
 
+    // Support thinking/reasoning kwargs for NVIDIA & reasoning models
+    if (endpoint.includes('api.nvidia.com') || model.capabilities.includes('reasoning')) {
+      payload.chat_template_kwargs = {
+        enable_thinking: true,
+        thinking: true,
+      };
+    }
+
     if (formattedTools) {
       payload.tools = formattedTools;
       payload.tool_choice = 'auto';
@@ -182,7 +197,13 @@ export class OpenAICompatibleAdapter implements ProviderAdapter {
           }
 
           const delta = choice.delta;
-          if (delta?.content) {
+          const reasoningDelta = delta?.reasoning_content || delta?.reasoning;
+          if (reasoningDelta) {
+            accumulatedContent += reasoningDelta;
+            if (onChunk) {
+              onChunk({ content: reasoningDelta, reasoningContent: reasoningDelta, isComplete: false });
+            }
+          } else if (delta?.content) {
             accumulatedContent += delta.content;
             if (onChunk) {
               onChunk({ content: delta.content, isComplete: false });

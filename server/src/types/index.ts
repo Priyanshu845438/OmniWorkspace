@@ -31,7 +31,7 @@ export type ModelType =
   | 'reranking'
   | 'specialized';
 
-export type ProviderType = 'nvidia' | 'openrouter' | 'ollama' | 'openai' | 'vllm' | 'custom';
+export type ProviderType = 'nvidia' | 'gemini' | 'openrouter' | 'ollama' | 'openai' | 'vllm' | 'custom';
 
 export interface ModelDefinition {
   id: string;
