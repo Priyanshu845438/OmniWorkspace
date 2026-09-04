@@ -422,7 +422,25 @@ app.post('/api/orchestrate/collaborative', async (req, res) => {
   }
 });
 
-// 14. Safe Redacted Diagnostic Export
+// 14. Plugin Management & Permissions
+app.get('/api/plugins', (req, res) => {
+  res.json({
+    loaded: pluginManager.getLoadedPlugins(),
+    pending: pluginManager.getPendingPlugins(),
+  });
+});
+
+app.post('/api/plugins/:id/approve', (req, res) => {
+  const success = pluginManager.approvePlugin(req.params.id);
+  res.json({ success, pluginId: req.params.id });
+});
+
+app.post('/api/plugins/:id/revoke', (req, res) => {
+  const success = pluginManager.revokePlugin(req.params.id);
+  res.json({ success, pluginId: req.params.id });
+});
+
+// 15. Safe Redacted Diagnostic Export
 app.get('/api/diagnostics/export', (req, res) => {
   const report = diagnosticExporter.generateSafeDiagnosticReport();
   res.json(report);
