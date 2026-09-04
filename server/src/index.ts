@@ -63,6 +63,8 @@ registerMediaAutomationDocTools(toolRegistry, pathShield, () => workflowEngine);
 // --- REST & STREAMING API ENDPOINTS ---
 
 // 1. Health & Status
+app.get('/healthz', (_req, res) => res.status(200).send('OK'));
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'online',
